@@ -35,7 +35,7 @@ bash scripts/build-macos.sh --app
 
 The check lane installs locked npm dependencies, typechecks and exports the frontend, and runs locked Rust tests. The app lane builds and verifies an ad-hoc signed `suonelo.app` under `src-tauri/target/<rust-target>/release/bundle/macos/`. The isolated build wrapper `scripts/build-macos-stable.py` remaps source paths. Run `python3 scripts/scan-macos-release-privacy.py path/to/suonelo.app` on the resulting bundle.
 
-macOS CI builds the `x86_64-apple-darwin` target on `macos-26-intel`. It checks the bundle and checksum, and launches the same mounted DMG with a fresh QA profile on Intel and on Apple silicon via Rosetta. Apple silicon CI also builds and tests a native arm64 app. Pushing the matching `v1.0.9` tag publishes the verified Windows x64 ZIP, Intel DMG and a combined `SHA256SUMS.txt` to GitHub Releases. To verify your download, put all three files in the same directory and run `shasum -a 256 -c SHA256SUMS.txt`.
+macOS CI builds the `x86_64-apple-darwin` target on `macos-26-intel`. It checks the bundle and checksum, and launches the mounted DMG with a fresh QA profile on Intel. Pushing the matching `v1.0.9` tag publishes the verified Windows x64 ZIP, Intel DMG and a combined `SHA256SUMS.txt` to GitHub Releases. To verify your download, put all three files in the same directory and run `shasum -a 256 -c SHA256SUMS.txt`.
 
 ### Frontend QA
 
