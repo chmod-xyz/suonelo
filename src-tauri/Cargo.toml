@@ -1,0 +1,68 @@
+[package]
+name = "suonelo"
+version = "1.0.9"
+edition = "2024"
+rust-version = "1.99.1"
+
+# Shared build dependencies
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+# Shared application dependencies
+[dependencies]
+tauri = { version = "2", features = ["custom-protocol"] }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-dialog = "2"
+rand = "0.8"
+zeroize = { version = "1", features = ["derive"] }
+fs2 = "0.4"
+dunce = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.41", features = ["bundled"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "fs", "process", "io-util"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json", "gzip", "brotli", "deflate"] }
+futures-util = "0.3"
+base64 = "0.22"
+regex = "1"
+url = "2"
+unicode-normalization = "0.1"
+unicode-segmentation = "1"
+hmac = "0.12"
+md-5 = "0.10"
+sha2 = "0.10"
+hex = "0.4"
+httpdate = "1"
+lofty = "=0.25.5"
+decibri-decode = "=0.1.5"
+tempfile = "3"
+sanitize-filename = "0.6"
+
+# Windows dependencies
+[target.'cfg(windows)'.dependencies]
+webview2-com = { version = "0.39.1", optional = true }
+windows = { version = "0.62", features = ["Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_System_Registry", "Win32_Foundation", "Win32_Security_Cryptography"] }
+
+# macOS dependencies
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+dirs = "7"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSApplication", "NSResponder"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSURL", "NSURLRequest"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["WKFrameInfo", "WKNavigationAction", "WKNavigationDelegate", "WKWebView", "block2", "objc2-app-kit"] }
+security-framework = "3.7"
+
+[features]
+guard-harness = []
+preload-prototype = ["dep:webview2-com", "tauri/unstable"]
+
+# Shared test dependencies
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
+
+[[bin]]
+name = "guard-harness"
+path = "src/bin/guard-harness.rs"
+required-features = ["guard-harness"]

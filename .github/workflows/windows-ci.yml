@@ -1,0 +1,140 @@
+name: Windows CI
+
+on: workflow_call
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  NEXT_PUBLIC_SUONELO_PLATFORM: win32
+  NEXT_TELEMETRY_DISABLED: '1'
+  CARGO_INCREMENTAL: '0'
+
+jobs:
+  build:
+    name: Build Windows (x64)
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      WINDOWS_ARCH: x64
+      RUST_TARGET: x86_64-pc-windows-msvc
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '24'
+          architecture: x64
+          package-manager-cache: false
+
+      - name: Check build inputs and install the Rust target
+        run: |
+          python scripts/check-windows-ci-artifact.py source
+          if ($LASTEXITCODE -ne 0) { throw 'Build input privacy check failed.' }
+          $rust = python -c "import tomllib; print(tomllib.load(open('src-tauri/Cargo.toml', 'rb'))['package']['rust-version'])"
+          if ($LASTEXITCODE -ne 0 -or $rust -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid Rust toolchain version.' }
+          rustup toolchain install "$rust" --profile minimal --target "$env:RUST_TARGET"
+          if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain installation failed.' }
+          "RUSTUP_TOOLCHAIN=$rust" >> $env:GITHUB_ENV
+
+      - name: Check locked frontend dependencies and export the UI
+        run: |
+          npm ci --no-audit
+          if ($LASTEXITCODE -ne 0) { throw 'Locked npm installation failed.' }
+          npm ls --all
+          if ($LASTEXITCODE -ne 0) { throw 'Installed npm dependency tree is invalid.' }
+          npm run build -- --webpack
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend export failed.' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'TypeScript check failed.' }
+          python scripts/check-windows-ci-artifact.py frontend "$env:RUNNER_TEMP/frontend.json"
+
+      - name: Report npm advisories
+        continue-on-error: true
+        run: npm audit --audit-level=low
+
+      - name: Test and compile the Windows binary
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'src-tauri/target'
+          $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
+          $rustupHome = if ($env:RUSTUP_HOME) { $env:RUSTUP_HOME } else { Join-Path $env:USERPROFILE '.rustup' }
+          $remaps = [ordered]@{
+            $env:USERPROFILE = '/build/home'
+            $env:RUNNER_TEMP = '/build/temp'
+            $env:GITHUB_WORKSPACE = '/build/source'
+            $cargoHome = '/build/cargo'
+            $rustupHome = '/build/rustup'
+            $env:CARGO_TARGET_DIR = '/build/target'
+          }
+          $flags = foreach ($entry in $remaps.GetEnumerator()) {
+            foreach ($prefix in @($entry.Key.Replace('\','/'), $entry.Key.Replace('/','\'))) {
+              "--remap-path-prefix=$prefix=$($entry.Value)"
+            }
+          }
+          $env:CARGO_ENCODED_RUSTFLAGS = ($flags + @('-C', 'debuginfo=0', '-C', 'link-arg=/DEBUG:NONE')) -join [char]31
+          cargo fetch --locked --target "$env:RUST_TARGET" --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Locked Rust dependency fetch failed.' }
+          cargo test --release --locked --target "$env:RUST_TARGET" --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed.' }
+          cargo build --release --locked --target "$env:RUST_TARGET" --manifest-path src-tauri/Cargo.toml --bin suonelo
+          if ($LASTEXITCODE -ne 0) { throw 'Windows compilation failed.' }
+          python scripts/check-windows-ci-artifact.py frontend "$env:RUNNER_TEMP/frontend.json" --verify
+          if ($LASTEXITCODE -ne 0) { throw 'Embedded frontend verification failed.' }
+
+      - name: Verify and stage the executable
+        run: |
+          $binary = Join-Path $env:GITHUB_WORKSPACE "src-tauri/target/$env:RUST_TARGET/release/suonelo.exe"
+          $destination = Join-Path $env:RUNNER_TEMP 'suonelo-artifact'
+          New-Item -ItemType Directory -Path $destination | Out-Null
+          $stagedExe = Join-Path $destination 'suonelo.exe'
+          Copy-Item -LiteralPath $binary -Destination $stagedExe
+          python scripts/check-windows-ci-artifact.py binary $stagedExe --arch "$env:WINDOWS_ARCH"
+          if ($LASTEXITCODE -ne 0) { throw 'Executable privacy or architecture check failed.' }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $dumpbin = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC/Tools/MSVC/**/bin/Hostx64/x64/dumpbin.exe' | Select-Object -First 1
+          if (-not $dumpbin) { throw 'No x64 dumpbin found in the MSVC installation.' }
+          $dependencies = & $dumpbin /DEPENDENTS $stagedExe
+          if ($LASTEXITCODE -ne 0 -or -not ($dependencies -match '^\s+KERNEL32\.dll\s*$')) {
+            throw 'Could not inspect the executable import table.'
+          }
+          $dependencies | Write-Output
+          if ($dependencies -match '^\s+[^\s]*(flac|decibri|avcodec|avformat|avutil|sndfile)[^\s]*\.dll\s*$') {
+            throw 'The portable executable imports an external audio codec.'
+          }
+          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid app version.' }
+          $peVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($stagedExe).ProductVersion
+          if ($peVersion -notin @($version, "$version.0")) { throw 'Executable version differs from package.json.' }
+          ./package-portable.ps1 -OutputRoot $destination
+
+      - name: Verify lockfiles stayed unchanged
+        run: git diff --exit-code HEAD -- package-lock.json src-tauri/Cargo.lock
+
+      - name: Upload Windows CI artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-package
+          path: |
+            ${{ runner.temp }}/suonelo-artifact/*.zip
+            ${{ runner.temp }}/suonelo-artifact/*.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Report Rust advisories
+        if: ${{ !cancelled() && env.RUSTUP_TOOLCHAIN != '' }}
+        continue-on-error: true
+        run: |
+          cargo install cargo-audit --version 0.22.0 --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Rust advisory checker installation failed.' }
+          cargo audit --file src-tauri/Cargo.lock
+

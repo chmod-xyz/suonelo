@@ -1,0 +1,4 @@
+[advisories]
+ignore = [
+  { id = "RUSTSEC-2024-0436", reason = "Lofty 0.25.5 uses paste as a compile-time macro. This advisory reports lack of maintenance only; remove the exception when Lofty replaces paste." },
+]

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "suonelo main window",
+  "windows": ["main"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-scale-factor", "clipboard-manager:allow-read-text", "dialog:allow-open", "dialog:allow-ask"]
+}

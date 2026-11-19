@@ -1,0 +1,2021 @@
+{
+  "apiVersion": "0.2",
+  "verifiedOn": "2026-11-07",
+  "storefront": "https://www.qobuz.com/gb-en/genres/download-streaming-albums",
+  "storefrontSha256": "65a0c98c3efa34cf796fa3ac68cbc19013b50b392c447df49f9a78857211c452",
+  "storefrontCoverageVerified": true,
+  "catalogNodes": 154,
+  "storefrontNodes": 183,
+  "genres": [
+    {
+      "id": 112,
+      "slug": "pop-rock",
+      "label": "Pop/Rock",
+      "parent": null,
+      "path": [
+        112
+      ]
+    },
+    {
+      "id": 117,
+      "slug": "pop",
+      "label": "Pop",
+      "parent": null,
+      "path": [
+        117
+      ],
+      "storefrontPath": [
+        117,
+        112
+      ]
+    },
+    {
+      "id": 157,
+      "slug": "pop-inde",
+      "label": "Indie Pop",
+      "parent": 117,
+      "path": [
+        157,
+        117
+      ],
+      "storefrontPath": [
+        157,
+        117,
+        112
+      ]
+    },
+    {
+      "id": 119,
+      "slug": "rock",
+      "label": "Rock",
+      "parent": null,
+      "path": [
+        119
+      ],
+      "storefrontPath": [
+        119,
+        112
+      ]
+    },
+    {
+      "id": 113,
+      "slug": "alternatif-et-inde",
+      "label": "Alternative & Indie",
+      "parent": 119,
+      "path": [
+        113,
+        119
+      ],
+      "storefrontPath": [
+        113,
+        119,
+        112
+      ]
+    },
+    {
+      "id": 118,
+      "slug": "punk-new-wave",
+      "label": "Punk / New Wave",
+      "parent": 119,
+      "path": [
+        118,
+        119
+      ],
+      "storefrontPath": [
+        118,
+        119,
+        112
+      ]
+    },
+    {
+      "id": 120,
+      "slug": "rock-progressif",
+      "label": "Progressive Rock",
+      "parent": 119,
+      "path": [
+        120,
+        119
+      ],
+      "storefrontPath": [
+        120,
+        119,
+        112
+      ]
+    },
+    {
+      "id": 121,
+      "slug": "rockabilly",
+      "label": "Rockabilly",
+      "parent": 119,
+      "path": [
+        121,
+        119
+      ],
+      "storefrontPath": [
+        121,
+        119,
+        112
+      ]
+    },
+    {
+      "id": 122,
+      "slug": "variete-internationale",
+      "label": "International Pop",
+      "parent": 112,
+      "path": [
+        122,
+        112
+      ]
+    },
+    {
+      "id": 114,
+      "slug": "crooners",
+      "label": "Crooners",
+      "parent": 122,
+      "path": [
+        114,
+        122,
+        112
+      ]
+    },
+    {
+      "id": 80,
+      "slug": "jazz",
+      "label": "Jazz",
+      "parent": null,
+      "path": [
+        80
+      ]
+    },
+    {
+      "id": 81,
+      "slug": "be-bop",
+      "label": "Bebop",
+      "parent": 80,
+      "path": [
+        81,
+        80
+      ]
+    },
+    {
+      "id": 82,
+      "slug": "cool",
+      "label": "Cool Jazz",
+      "parent": 80,
+      "path": [
+        82,
+        80
+      ]
+    },
+    {
+      "id": 144,
+      "slug": "jazz-crossover",
+      "label": "Crossover",
+      "parent": 80,
+      "path": [
+        144,
+        80
+      ]
+    },
+    {
+      "id": 145,
+      "slug": "dixieland",
+      "label": "Dixieland",
+      "parent": 80,
+      "path": [
+        145,
+        80
+      ]
+    },
+    {
+      "id": 83,
+      "slug": "free-jazz-avant-garde",
+      "label": "Free Jazz & Avant-Garde",
+      "parent": 80,
+      "path": [
+        83,
+        80
+      ]
+    },
+    {
+      "id": 84,
+      "slug": "gospel",
+      "label": "Gospel",
+      "parent": 80,
+      "path": [
+        84,
+        80
+      ]
+    },
+    {
+      "id": 85,
+      "slug": "jazz-contemporain",
+      "label": "Contemporary Jazz",
+      "parent": 80,
+      "path": [
+        85,
+        80
+      ]
+    },
+    {
+      "id": 86,
+      "slug": "jazz-fusion-jazz-rock",
+      "label": "Jazz Fusion & Jazz Rock",
+      "parent": 80,
+      "path": [
+        86,
+        80
+      ]
+    },
+    {
+      "id": 87,
+      "slug": "jazz-manouche",
+      "label": "Gypsy Jazz",
+      "parent": 80,
+      "path": [
+        87,
+        80
+      ]
+    },
+    {
+      "id": 88,
+      "slug": "jazz-traditionnel-new-orleans",
+      "label": "Traditional Jazz & New Orleans",
+      "parent": 80,
+      "path": [
+        88,
+        80
+      ]
+    },
+    {
+      "id": 89,
+      "slug": "jazz-vocal",
+      "label": "Vocal Jazz",
+      "parent": 80,
+      "path": [
+        89,
+        80
+      ]
+    },
+    {
+      "id": 90,
+      "slug": "latin-jazz",
+      "label": "Latin Jazz",
+      "parent": 80,
+      "path": [
+        90,
+        80
+      ]
+    },
+    {
+      "id": 146,
+      "slug": "ragtime",
+      "label": "Ragtime",
+      "parent": 80,
+      "path": [
+        146,
+        80
+      ]
+    },
+    {
+      "id": 10,
+      "slug": "classique",
+      "label": "Classical",
+      "parent": null,
+      "path": [
+        10
+      ]
+    },
+    {
+      "id": 11,
+      "slug": "electronique-ou-concrete",
+      "label": "Experimental",
+      "parent": 10,
+      "path": [
+        11,
+        10
+      ]
+    },
+    {
+      "id": 12,
+      "slug": "musique-concrete",
+      "label": "Musique Concrète",
+      "parent": 11,
+      "path": [
+        12,
+        11,
+        10
+      ]
+    },
+    {
+      "id": 13,
+      "slug": "musique-electronique",
+      "label": "Electronic",
+      "parent": 11,
+      "path": [
+        13,
+        11,
+        10
+      ]
+    },
+    {
+      "id": 14,
+      "slug": "musique-minimaliste",
+      "label": "Minimal Music",
+      "parent": 11,
+      "path": [
+        14,
+        11,
+        10
+      ]
+    },
+    {
+      "id": 15,
+      "slug": "melodies-lieder",
+      "label": "Art Songs, Mélodies & Lieder",
+      "parent": 10,
+      "path": [
+        15,
+        10
+      ]
+    },
+    {
+      "id": 17,
+      "slug": "lieder-autres-territoires",
+      "label": "Art Songs",
+      "parent": 15,
+      "path": [
+        17,
+        15,
+        10
+      ]
+    },
+    {
+      "id": 16,
+      "slug": "lieder-allemagne",
+      "label": "Lieder (German)",
+      "parent": 15,
+      "path": [
+        16,
+        15,
+        10
+      ]
+    },
+    {
+      "id": 18,
+      "slug": "melodies-autres-territoires",
+      "label": "Mélodies",
+      "parent": 15,
+      "path": [
+        18,
+        15,
+        10
+      ]
+    },
+    {
+      "id": 19,
+      "slug": "melodies-angleterre",
+      "label": "Mélodies (England)",
+      "parent": 15,
+      "path": [
+        19,
+        15,
+        10
+      ]
+    },
+    {
+      "id": 20,
+      "slug": "melodies-europe-du-nord",
+      "label": "Mélodies (Northern Europe)",
+      "parent": 15,
+      "path": [
+        20,
+        15,
+        10
+      ]
+    },
+    {
+      "id": 21,
+      "slug": "melodies-france",
+      "label": "Mélodies (French)",
+      "parent": 15,
+      "path": [
+        21,
+        15,
+        10
+      ]
+    },
+    {
+      "id": 22,
+      "slug": "musique-concertante",
+      "label": "Concertos",
+      "parent": 10,
+      "path": [
+        22,
+        10
+      ]
+    },
+    {
+      "id": 24,
+      "slug": "concertos-pour-piano",
+      "label": "Keyboard Concertos",
+      "parent": 22,
+      "path": [
+        24,
+        22,
+        10
+      ]
+    },
+    {
+      "id": 138,
+      "slug": "concertos-pour-instruments-a-vent",
+      "label": "Concertos for wind instruments",
+      "parent": 22,
+      "path": [
+        138,
+        22,
+        10
+      ]
+    },
+    {
+      "id": 137,
+      "slug": "concertos-pour-trompette",
+      "label": "Concertos for trumpet",
+      "parent": 22,
+      "path": [
+        137,
+        22,
+        10
+      ]
+    },
+    {
+      "id": 25,
+      "slug": "concertos-pour-violon",
+      "label": "Violin Concertos",
+      "parent": 22,
+      "path": [
+        25,
+        22,
+        10
+      ]
+    },
+    {
+      "id": 26,
+      "slug": "concertos-pour-violoncelle",
+      "label": "Cello Concertos",
+      "parent": 22,
+      "path": [
+        26,
+        22,
+        10
+      ]
+    },
+    {
+      "id": 27,
+      "slug": "musique-de-chambre",
+      "label": "Chamber Music",
+      "parent": 10,
+      "path": [
+        27,
+        10
+      ]
+    },
+    {
+      "id": 33,
+      "slug": "sonates-pour-deux-instruments",
+      "label": "Duets",
+      "parent": 27,
+      "path": [
+        33,
+        27,
+        10
+      ]
+    },
+    {
+      "id": 30,
+      "slug": "piano-solo",
+      "label": "Solo Piano",
+      "parent": 27,
+      "path": [
+        30,
+        27,
+        10
+      ]
+    },
+    {
+      "id": 31,
+      "slug": "quatuors",
+      "label": "Quartets",
+      "parent": 27,
+      "path": [
+        31,
+        27,
+        10
+      ]
+    },
+    {
+      "id": 32,
+      "slug": "quintettes",
+      "label": "Quintets",
+      "parent": 27,
+      "path": [
+        32,
+        27,
+        10
+      ]
+    },
+    {
+      "id": 34,
+      "slug": "trios",
+      "label": "Trios",
+      "parent": 27,
+      "path": [
+        34,
+        27,
+        10
+      ]
+    },
+    {
+      "id": 35,
+      "slug": "violon-solo",
+      "label": "Violin Solos",
+      "parent": 27,
+      "path": [
+        35,
+        27,
+        10
+      ]
+    },
+    {
+      "id": 36,
+      "slug": "violoncelle-solo",
+      "label": "Cello Solos",
+      "parent": 27,
+      "path": [
+        36,
+        27,
+        10
+      ]
+    },
+    {
+      "id": 37,
+      "slug": "musique-orchestrale",
+      "label": "Symphonic Music",
+      "parent": 10,
+      "path": [
+        37,
+        10
+      ]
+    },
+    {
+      "id": 38,
+      "slug": "ballets",
+      "label": "Ballets",
+      "parent": 37,
+      "path": [
+        38,
+        37,
+        10
+      ]
+    },
+    {
+      "id": 39,
+      "slug": "musique-de-scene",
+      "label": "Theatre Music",
+      "parent": 37,
+      "path": [
+        39,
+        37,
+        10
+      ]
+    },
+    {
+      "id": 40,
+      "slug": "musiques-pour-le-cinema",
+      "label": "Cinema Music",
+      "parent": 37,
+      "path": [
+        40,
+        37,
+        10
+      ]
+    },
+    {
+      "id": 41,
+      "slug": "ouvertures",
+      "label": "Overtures",
+      "parent": 37,
+      "path": [
+        41,
+        37,
+        10
+      ]
+    },
+    {
+      "id": 42,
+      "slug": "poemes-symphoniques",
+      "label": "Symphonic Poems",
+      "parent": 37,
+      "path": [
+        42,
+        37,
+        10
+      ]
+    },
+    {
+      "id": 43,
+      "slug": "symphonies",
+      "label": "Symphonies",
+      "parent": 37,
+      "path": [
+        43,
+        37,
+        10
+      ]
+    },
+    {
+      "id": 44,
+      "slug": "musique-vocale-profane-et-sacree",
+      "label": "Vocal Music (Secular and Sacred)",
+      "parent": 10,
+      "path": [
+        44,
+        10
+      ]
+    },
+    {
+      "id": 46,
+      "slug": "musique-chorale-pour-chour",
+      "label": "Choral Music (Choirs)",
+      "parent": 44,
+      "path": [
+        46,
+        44,
+        10
+      ]
+    },
+    {
+      "id": 47,
+      "slug": "musique-d-ensemble-musique-sans-chour",
+      "label": "Music by vocal ensembles",
+      "parent": 44,
+      "path": [
+        47,
+        44,
+        10
+      ]
+    },
+    {
+      "id": 49,
+      "slug": "recitals-vocaux",
+      "label": "Vocal Recitals",
+      "parent": 44,
+      "path": [
+        49,
+        44,
+        10
+      ]
+    },
+    {
+      "id": 176,
+      "slug": "musique-vocale-profane",
+      "label": "Secular Vocal Music",
+      "parent": 10,
+      "path": [
+        176,
+        10
+      ]
+    },
+    {
+      "id": 45,
+      "slug": "cantates-profanes",
+      "label": "Cantatas (secular)",
+      "parent": 176,
+      "path": [
+        45,
+        176,
+        10
+      ]
+    },
+    {
+      "id": 48,
+      "slug": "oratorios-profanes",
+      "label": "Oratorios (secular)",
+      "parent": 176,
+      "path": [
+        48,
+        176,
+        10
+      ]
+    },
+    {
+      "id": 50,
+      "slug": "musique-vocale-sacree",
+      "label": "Sacred Vocal Music",
+      "parent": 10,
+      "path": [
+        50,
+        10
+      ]
+    },
+    {
+      "id": 51,
+      "slug": "cantates-sacrees",
+      "label": "Cantatas (sacred)",
+      "parent": 50,
+      "path": [
+        51,
+        50,
+        10
+      ]
+    },
+    {
+      "id": 52,
+      "slug": "chours-sacres",
+      "label": "Choirs (sacred)",
+      "parent": 50,
+      "path": [
+        52,
+        50,
+        10
+      ]
+    },
+    {
+      "id": 53,
+      "slug": "messes-passions-requiems",
+      "label": "Masses, Passions, Requiems",
+      "parent": 50,
+      "path": [
+        53,
+        50,
+        10
+      ]
+    },
+    {
+      "id": 54,
+      "slug": "oratorios-sacrees",
+      "label": "Sacred Oratorios",
+      "parent": 50,
+      "path": [
+        54,
+        50,
+        10
+      ]
+    },
+    {
+      "id": 55,
+      "slug": "opera",
+      "label": "Opera",
+      "parent": 10,
+      "path": [
+        55,
+        10
+      ]
+    },
+    {
+      "id": 56,
+      "slug": "extraits",
+      "label": "Opera Extracts",
+      "parent": 55,
+      "path": [
+        56,
+        55,
+        10
+      ]
+    },
+    {
+      "id": 57,
+      "slug": "integrales",
+      "label": "Full Operas",
+      "parent": 55,
+      "path": [
+        57,
+        55,
+        10
+      ]
+    },
+    {
+      "id": 58,
+      "slug": "operette",
+      "label": "Operettas",
+      "parent": 10,
+      "path": [
+        58,
+        10
+      ]
+    },
+    {
+      "id": 64,
+      "slug": "electro",
+      "label": "Electronic",
+      "parent": null,
+      "path": [
+        64
+      ]
+    },
+    {
+      "id": 65,
+      "slug": "ambiant",
+      "label": "Ambient",
+      "parent": 64,
+      "path": [
+        65,
+        64
+      ]
+    },
+    {
+      "id": 129,
+      "slug": "dance",
+      "label": "Dance",
+      "parent": 64,
+      "path": [
+        129,
+        64
+      ]
+    },
+    {
+      "id": 66,
+      "slug": "downtempo",
+      "label": "Chill-out",
+      "parent": 64,
+      "path": [
+        66,
+        64
+      ]
+    },
+    {
+      "id": 67,
+      "slug": "drum-bass",
+      "label": "Drum & Bass",
+      "parent": 64,
+      "path": [
+        67,
+        64
+      ]
+    },
+    {
+      "id": 68,
+      "slug": "house",
+      "label": "House",
+      "parent": 64,
+      "path": [
+        68,
+        64
+      ]
+    },
+    {
+      "id": 69,
+      "slug": "lounge",
+      "label": "Lounge",
+      "parent": 64,
+      "path": [
+        69,
+        64
+      ]
+    },
+    {
+      "id": 141,
+      "slug": "new-age",
+      "label": "New Age",
+      "parent": 64,
+      "path": [
+        141,
+        64
+      ]
+    },
+    {
+      "id": 70,
+      "slug": "techno",
+      "label": "Techno",
+      "parent": 64,
+      "path": [
+        70,
+        64
+      ]
+    },
+    {
+      "id": 71,
+      "slug": "trance",
+      "label": "Trance",
+      "parent": 64,
+      "path": [
+        71,
+        64
+      ]
+    },
+    {
+      "id": 72,
+      "slug": "trip-hop",
+      "label": "Trip Hop",
+      "parent": 64,
+      "path": [
+        72,
+        64
+      ]
+    },
+    {
+      "id": 127,
+      "slug": "soul-funk-rap",
+      "label": "Soul/Funk/R&B",
+      "parent": null,
+      "path": [
+        127
+      ]
+    },
+    {
+      "id": 128,
+      "slug": "acid-jazz",
+      "label": "Acid Jazz",
+      "parent": 127,
+      "path": [
+        128,
+        127
+      ]
+    },
+    {
+      "id": 130,
+      "slug": "disco",
+      "label": "Disco",
+      "parent": 127,
+      "path": [
+        130,
+        127
+      ]
+    },
+    {
+      "id": 131,
+      "slug": "funk",
+      "label": "Funk",
+      "parent": 127,
+      "path": [
+        131,
+        127
+      ]
+    },
+    {
+      "id": 132,
+      "slug": "rb",
+      "label": "R&B",
+      "parent": 127,
+      "path": [
+        132,
+        127
+      ]
+    },
+    {
+      "id": 134,
+      "slug": "soul",
+      "label": "Soul",
+      "parent": 127,
+      "path": [
+        134,
+        127
+      ]
+    },
+    {
+      "id": 116,
+      "slug": "metal",
+      "label": "Metal",
+      "parent": 119,
+      "path": [
+        116,
+        119
+      ],
+      "storefrontPath": [
+        116
+      ]
+    },
+    {
+      "id": 115,
+      "slug": "hard-rock",
+      "label": "Hard Rock",
+      "parent": 119,
+      "path": [
+        115,
+        119
+      ],
+      "storefrontPath": [
+        115
+      ]
+    },
+    {
+      "id": 133,
+      "slug": "rap-hip-hop",
+      "label": "Hip-Hop/Rap",
+      "parent": null,
+      "path": [
+        133
+      ]
+    },
+    {
+      "id": 2,
+      "slug": "blues-country-folk",
+      "label": "Blues/Country/Folk",
+      "parent": null,
+      "path": [
+        2
+      ]
+    },
+    {
+      "id": 3,
+      "slug": "blues",
+      "label": "Blues",
+      "parent": 2,
+      "path": [
+        3,
+        2
+      ]
+    },
+    {
+      "id": 4,
+      "slug": "country",
+      "label": "Country",
+      "parent": 2,
+      "path": [
+        4,
+        2
+      ]
+    },
+    {
+      "id": 5,
+      "slug": "folk",
+      "label": "Folk",
+      "parent": 2,
+      "path": [
+        5,
+        2
+      ]
+    },
+    {
+      "id": 91,
+      "slug": "musique-de-films",
+      "label": "Soundtracks",
+      "parent": null,
+      "path": [
+        91
+      ]
+    },
+    {
+      "id": 92,
+      "slug": "bandes-originales-de-films",
+      "label": "Film Soundtracks",
+      "parent": 91,
+      "path": [
+        92,
+        91
+      ]
+    },
+    {
+      "id": 93,
+      "slug": "comedies-musicales",
+      "label": "Musical Theatre",
+      "parent": 91,
+      "path": [
+        93,
+        91
+      ]
+    },
+    {
+      "id": 196,
+      "slug": "anime-jeux-video",
+      "label": "Anime/Video game",
+      "parent": 91,
+      "path": [
+        196,
+        91
+      ]
+    },
+    {
+      "id": 148,
+      "slug": "jeux-video",
+      "label": "Video Games",
+      "parent": 196,
+      "path": [
+        148,
+        196,
+        91
+      ]
+    },
+    {
+      "id": 197,
+      "slug": "anime",
+      "label": "Anime",
+      "parent": 196,
+      "path": [
+        197,
+        196,
+        91
+      ]
+    },
+    {
+      "id": 147,
+      "slug": "series-tv",
+      "label": "TV Series",
+      "parent": 91,
+      "path": [
+        147,
+        91
+      ]
+    },
+    {
+      "id": 94,
+      "slug": "musiques-du-monde",
+      "label": "World",
+      "parent": null,
+      "path": [
+        94
+      ]
+    },
+    {
+      "id": 95,
+      "slug": "afrique",
+      "label": "Africa",
+      "parent": 94,
+      "path": [
+        95,
+        94
+      ]
+    },
+    {
+      "id": 96,
+      "slug": "afrobeat",
+      "label": "Afrobeat",
+      "parent": 94,
+      "path": [
+        96,
+        94
+      ]
+    },
+    {
+      "id": 150,
+      "slug": "amerique-du-nord",
+      "label": "North America",
+      "parent": 94,
+      "path": [
+        150,
+        94
+      ]
+    },
+    {
+      "id": 149,
+      "slug": "amerique-latine",
+      "label": "Latin America",
+      "parent": null,
+      "path": [
+        149
+      ],
+      "storefrontPath": [
+        149,
+        94
+      ]
+    },
+    {
+      "id": 180,
+      "slug": "bolero",
+      "label": "Bolero",
+      "parent": 149,
+      "path": [
+        180,
+        149
+      ],
+      "storefrontPath": [
+        180,
+        149,
+        94
+      ]
+    },
+    {
+      "id": 181,
+      "slug": "urban-latino",
+      "label": "Latin Urban",
+      "parent": 149,
+      "path": [
+        181,
+        149
+      ],
+      "storefrontPath": [
+        181,
+        149,
+        94
+      ]
+    },
+    {
+      "id": 182,
+      "slug": "reggaeton",
+      "label": "Reggaeton",
+      "parent": 181,
+      "path": [
+        182,
+        181,
+        149
+      ],
+      "storefrontPath": [
+        182,
+        181,
+        149,
+        94
+      ]
+    },
+    {
+      "id": 97,
+      "slug": "asie",
+      "label": "Asia",
+      "parent": 94,
+      "path": [
+        97,
+        94
+      ]
+    },
+    {
+      "id": 190,
+      "slug": "japon",
+      "label": "Japanese music",
+      "parent": 97,
+      "path": [
+        190,
+        97,
+        94
+      ]
+    },
+    {
+      "id": 191,
+      "slug": "j-pop",
+      "label": "J-Pop",
+      "parent": 190,
+      "path": [
+        191,
+        190,
+        97,
+        94
+      ]
+    },
+    {
+      "id": 192,
+      "slug": "musique-japonaise-traditionnelle",
+      "label": "Japanese traditional",
+      "parent": 190,
+      "path": [
+        192,
+        190,
+        97,
+        94
+      ]
+    },
+    {
+      "id": 193,
+      "slug": "coree",
+      "label": "Korean music",
+      "parent": 97,
+      "path": [
+        193,
+        97,
+        94
+      ]
+    },
+    {
+      "id": 194,
+      "slug": "k-pop",
+      "label": "K-Pop",
+      "parent": 193,
+      "path": [
+        194,
+        193,
+        97,
+        94
+      ]
+    },
+    {
+      "id": 195,
+      "slug": "musique-coreenne-traditionnelle",
+      "label": "Korean traditional",
+      "parent": 193,
+      "path": [
+        195,
+        193,
+        97,
+        94
+      ]
+    },
+    {
+      "id": 98,
+      "slug": "bresil",
+      "label": "Brazil",
+      "parent": null,
+      "path": [
+        98
+      ],
+      "storefrontPath": [
+        98,
+        94
+      ]
+    },
+    {
+      "id": 183,
+      "slug": "mpb",
+      "label": "MPB",
+      "parent": 98,
+      "path": [
+        183,
+        98
+      ],
+      "storefrontPath": [
+        183,
+        98,
+        94
+      ]
+    },
+    {
+      "id": 184,
+      "slug": "bossa-nova",
+      "label": "Bossa Nova",
+      "parent": 98,
+      "path": [
+        184,
+        98
+      ],
+      "storefrontPath": [
+        184,
+        98,
+        94
+      ]
+    },
+    {
+      "id": 185,
+      "slug": "samba",
+      "label": "Samba",
+      "parent": 98,
+      "path": [
+        185,
+        98
+      ],
+      "storefrontPath": [
+        185,
+        98,
+        94
+      ]
+    },
+    {
+      "id": 186,
+      "slug": "forro",
+      "label": "Forro",
+      "parent": 98,
+      "path": [
+        186,
+        98
+      ],
+      "storefrontPath": [
+        186,
+        98,
+        94
+      ]
+    },
+    {
+      "id": 187,
+      "slug": "pagode",
+      "label": "Pagode",
+      "parent": 98,
+      "path": [
+        187,
+        98
+      ],
+      "storefrontPath": [
+        187,
+        98,
+        94
+      ]
+    },
+    {
+      "id": 188,
+      "slug": "funk-brasil",
+      "label": "Brazilian Funk",
+      "parent": 98,
+      "path": [
+        188,
+        98
+      ],
+      "storefrontPath": [
+        188,
+        98,
+        94
+      ]
+    },
+    {
+      "id": 189,
+      "slug": "sertanejo",
+      "label": "Sertanejo",
+      "parent": 98,
+      "path": [
+        189,
+        98
+      ],
+      "storefrontPath": [
+        189,
+        98,
+        94
+      ]
+    },
+    {
+      "id": 99,
+      "slug": "celtique",
+      "label": "Celtic",
+      "parent": 94,
+      "path": [
+        99,
+        94
+      ]
+    },
+    {
+      "id": 151,
+      "slug": "europe",
+      "label": "Europe",
+      "parent": 94,
+      "path": [
+        151,
+        94
+      ]
+    },
+    {
+      "id": 160,
+      "slug": "allemagne",
+      "label": "Germany",
+      "parent": 151,
+      "path": [
+        160,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 173,
+      "slug": "schlager",
+      "label": "Schlager",
+      "parent": 160,
+      "path": [
+        173,
+        160,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 171,
+      "slug": "stimmungsmusik",
+      "label": "Stimmungsmusik ",
+      "parent": 160,
+      "path": [
+        171,
+        160,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 172,
+      "slug": "volksmusik",
+      "label": "Volksmusik",
+      "parent": 160,
+      "path": [
+        172,
+        160,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 6,
+      "slug": "chanson-francaise",
+      "label": "French Music",
+      "parent": 151,
+      "path": [
+        6,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 8,
+      "slug": "retro",
+      "label": "Retro French Music",
+      "parent": 6,
+      "path": [
+        8,
+        6,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 7,
+      "slug": "interpretes",
+      "label": "French Artists",
+      "parent": 6,
+      "path": [
+        7,
+        6,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 9,
+      "slug": "rock-francais",
+      "label": "French Rock",
+      "parent": 6,
+      "path": [
+        9,
+        6,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 161,
+      "slug": "ecosse",
+      "label": "Scottish",
+      "parent": 151,
+      "path": [
+        161,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 162,
+      "slug": "espagne",
+      "label": "Spain",
+      "parent": 151,
+      "path": [
+        162,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 100,
+      "slug": "europe-de-l-est",
+      "label": "Eastern Europe",
+      "parent": 151,
+      "path": [
+        100,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 163,
+      "slug": "grece",
+      "label": "Greece",
+      "parent": 151,
+      "path": [
+        163,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 164,
+      "slug": "irlande",
+      "label": "Ireland",
+      "parent": 151,
+      "path": [
+        164,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 174,
+      "slug": "irish-celtic",
+      "label": "Irish Celtic",
+      "parent": 164,
+      "path": [
+        174,
+        164,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 175,
+      "slug": "irish-popmusic",
+      "label": "Irish Pop Music",
+      "parent": 164,
+      "path": [
+        175,
+        164,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 165,
+      "slug": "italie",
+      "label": "Italy",
+      "parent": 151,
+      "path": [
+        165,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 168,
+      "slug": "musique-folklorique-suisse",
+      "label": "Swiss Folk Music",
+      "parent": 151,
+      "path": [
+        168,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 166,
+      "slug": "portugal",
+      "label": "Portugal",
+      "parent": 151,
+      "path": [
+        166,
+        151,
+        94
+      ]
+    },
+    {
+      "id": 101,
+      "slug": "fado",
+      "label": "Fado",
+      "parent": 94,
+      "path": [
+        101,
+        94
+      ]
+    },
+    {
+      "id": 102,
+      "slug": "flamenco",
+      "label": "Flamenco",
+      "parent": 94,
+      "path": [
+        102,
+        94
+      ]
+    },
+    {
+      "id": 152,
+      "slug": "gipsy",
+      "label": "Gypsy",
+      "parent": 94,
+      "path": [
+        152,
+        94
+      ]
+    },
+    {
+      "id": 154,
+      "slug": "maghreb",
+      "label": "Maghreb",
+      "parent": 94,
+      "path": [
+        154,
+        94
+      ]
+    },
+    {
+      "id": 104,
+      "slug": "musique-indienne",
+      "label": "Indian Music",
+      "parent": 94,
+      "path": [
+        104,
+        94
+      ]
+    },
+    {
+      "id": 105,
+      "slug": "orient-maghreb",
+      "label": "Oriental Music",
+      "parent": 94,
+      "path": [
+        105,
+        94
+      ]
+    },
+    {
+      "id": 106,
+      "slug": "rai",
+      "label": "Raï",
+      "parent": 94,
+      "path": [
+        106,
+        94
+      ]
+    },
+    {
+      "id": 155,
+      "slug": "russie",
+      "label": "Russia",
+      "parent": 94,
+      "path": [
+        155,
+        94
+      ]
+    },
+    {
+      "id": 107,
+      "slug": "salsa",
+      "label": "Salsa",
+      "parent": 94,
+      "path": [
+        107,
+        94
+      ]
+    },
+    {
+      "id": 108,
+      "slug": "tango",
+      "label": "Tango",
+      "parent": 94,
+      "path": [
+        108,
+        94
+      ]
+    },
+    {
+      "id": 156,
+      "slug": "turquie",
+      "label": "Turkey",
+      "parent": 94,
+      "path": [
+        156,
+        94
+      ]
+    },
+    {
+      "id": 110,
+      "slug": "yiddish-klezmer",
+      "label": "Yiddish & Klezmer",
+      "parent": 94,
+      "path": [
+        110,
+        94
+      ]
+    },
+    {
+      "id": 111,
+      "slug": "zouk-antilles",
+      "label": "Zouk & Antilles",
+      "parent": 94,
+      "path": [
+        111,
+        94
+      ]
+    },
+    {
+      "id": 123,
+      "slug": "reggae",
+      "label": "Reggae",
+      "parent": 94,
+      "path": [
+        123,
+        94
+      ],
+      "storefrontPath": [
+        123
+      ]
+    },
+    {
+      "id": 124,
+      "slug": "dancehall",
+      "label": "Dancehall",
+      "parent": 123,
+      "path": [
+        124,
+        123,
+        94
+      ],
+      "storefrontPath": [
+        124,
+        123
+      ]
+    },
+    {
+      "id": 125,
+      "slug": "dub",
+      "label": "Dub",
+      "parent": 123,
+      "path": [
+        125,
+        123,
+        94
+      ],
+      "storefrontPath": [
+        125,
+        123
+      ]
+    },
+    {
+      "id": 126,
+      "slug": "ska-rocksteady",
+      "label": "Ska & Rocksteady",
+      "parent": 123,
+      "path": [
+        126,
+        123,
+        94
+      ],
+      "storefrontPath": [
+        126,
+        123
+      ]
+    },
+    {
+      "id": 142,
+      "slug": "ambiance",
+      "label": "Ambient/New Age",
+      "parent": null,
+      "path": [
+        142
+      ]
+    },
+    {
+      "id": 74,
+      "slug": "accordeon",
+      "label": "Accordion",
+      "parent": 142,
+      "path": [
+        74,
+        142
+      ]
+    },
+    {
+      "id": 158,
+      "slug": "chansons-paillardes",
+      "label": "Bawdy songs",
+      "parent": 142,
+      "path": [
+        158,
+        142
+      ]
+    },
+    {
+      "id": 77,
+      "slug": "karaoke",
+      "label": "Karaoke",
+      "parent": 142,
+      "path": [
+        77,
+        142
+      ]
+    },
+    {
+      "id": 78,
+      "slug": "musique-militaire",
+      "label": "Military Music",
+      "parent": 142,
+      "path": [
+        78,
+        142
+      ]
+    },
+    {
+      "id": 159,
+      "slug": "musiques-de-noel",
+      "label": "Christmas Music",
+      "parent": 142,
+      "path": [
+        159,
+        142
+      ]
+    },
+    {
+      "id": 79,
+      "slug": "relaxation",
+      "label": "Relaxation",
+      "parent": 142,
+      "path": [
+        79,
+        142
+      ]
+    },
+    {
+      "id": 167,
+      "slug": "enfants",
+      "label": "Children",
+      "parent": null,
+      "path": [
+        167
+      ]
+    },
+    {
+      "id": 75,
+      "slug": "contes-et-comptines",
+      "label": "Stories and Nursery Rhymes",
+      "parent": 167,
+      "path": [
+        75,
+        167
+      ]
+    },
+    {
+      "id": 76,
+      "slug": "educatif",
+      "label": "Educational",
+      "parent": 167,
+      "path": [
+        76,
+        167
+      ]
+    },
+    {
+      "id": 59,
+      "slug": "diction-litterature",
+      "label": "Eclectic/Other",
+      "parent": null,
+      "path": [
+        59
+      ]
+    },
+    {
+      "id": 178,
+      "slug": "allemand",
+      "label": "German",
+      "parent": 59,
+      "path": [
+        178,
+        59
+      ]
+    },
+    {
+      "id": 177,
+      "slug": "anglais",
+      "label": "English",
+      "parent": 59,
+      "path": [
+        177,
+        59
+      ]
+    },
+    {
+      "id": 170,
+      "slug": "francais",
+      "label": "French",
+      "parent": 59,
+      "path": [
+        170,
+        59
+      ]
+    },
+    {
+      "id": 61,
+      "slug": "documents-historiques",
+      "label": "Historical Documents",
+      "parent": 170,
+      "path": [
+        61,
+        170,
+        59
+      ]
+    },
+    {
+      "id": 60,
+      "slug": "pedagogie",
+      "label": "Educational",
+      "parent": 170,
+      "path": [
+        60,
+        170,
+        59
+      ]
+    },
+    {
+      "id": 62,
+      "slug": "humour",
+      "label": "Humour",
+      "parent": 59,
+      "path": [
+        62,
+        59
+      ]
+    },
+    {
+      "id": 63,
+      "slug": "litterature",
+      "label": "Literature",
+      "parent": 59,
+      "path": [
+        63,
+        59
+      ]
+    },
+    {
+      "id": 179,
+      "slug": "neerlandais",
+      "label": "Dutch",
+      "parent": 59,
+      "path": [
+        179,
+        59
+      ]
+    }
+  ]
+}

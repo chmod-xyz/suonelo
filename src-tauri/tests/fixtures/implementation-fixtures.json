@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "referenceDate": "2026-11-05",
+  "scope": "Documentation test vectors for future implementation; not an existing IPC schema or executable test suite.",
+  "pathComparison": "Compare path components or normalize platform separators to forward slash. Do not normalize interior spaces.",
+  "sampleMetadata": {
+    "artist": "Aster Vale",
+    "album artist": "Aster Vale",
+    "track title": "Quiet orbit",
+    "track number": "03",
+    "year": "2026",
+    "album name": "Music for the Moon",
+    "album id": "x1sample42",
+    "genre": "Electronic",
+    "disc number": "1"
+  },
+  "latestDefaults": {
+    "folderTemplate": "%album artist%/[(%year%)] %album name% [[Q%target quality%]][[%bit depth%-Bit %sampling rate%kHz]]",
+    "filenameTemplate": "%track number%. %artist% - %track title%",
+    "safeMode": true
+  },
+  "naming": [
+    {
+      "id": "N-01-tier4",
+      "folderTemplate": "[(%year%)] %album title% [[%bit depth%-Bits]]",
+      "filenameTemplate": "%track title%",
+      "requestedTier": 4,
+      "delivered": { "format": "flac", "bitDepth": 24, "samplingRateKHz": 192 },
+      "expectedRelativePath": "(2026) Music for the Moon [24-Bits]/Quiet orbit.flac"
+    },
+    {
+      "id": "N-01-tier1",
+      "folderTemplate": "[(%year%)] %album title% [[%bit depth%-Bits]]",
+      "filenameTemplate": "%track title%",
+      "requestedTier": 1,
+      "delivered": { "format": "mp3", "bitDepth": null, "samplingRateKHz": 44.1 },
+      "expectedRelativePath": "(2026) Music for the Moon/Quiet orbit.mp3"
+    },
+    {
+      "id": "N-02-inside-space-present",
+      "componentTemplate": "%album name%[ (%year%)]",
+      "metadataOverrides": {},
+      "expectedComponent": "Music for the Moon (2026)"
+    },
+    {
+      "id": "N-02-outside-space-present",
+      "componentTemplate": "%album name% [(%year%)]",
+      "metadataOverrides": {},
+      "expectedComponent": "Music for the Moon (2026)"
+    },
+    {
+      "id": "N-02-inside-space-missing",
+      "componentTemplate": "%album name%[ (%year%)] - Deluxe",
+      "metadataOverrides": { "year": null },
+      "expectedComponent": "Music for the Moon - Deluxe"
+    },
+    {
+      "id": "N-02-outside-space-missing",
+      "componentTemplate": "%album name% [(%year%)] - Deluxe",
+      "metadataOverrides": { "year": null },
+      "expectedComponent": "Music for the Moon  - Deluxe"
+    },
+    {
+      "id": "N-03-five-spaces",
+      "folderTemplate": "%artist%     %track title%",
+      "filenameTemplate": "%artist%     %track title%",
+      "separatorCodePoint": "U+0020",
+      "separatorCount": 5,
+      "requestedTier": 4,
+      "expectedRelativePath": "Aster Vale     Quiet orbit/Aster Vale     Quiet orbit.flac"
+    },
+    {
+      "id": "N-04-tier1",
+      "useLatestDefaults": true,
+      "requestedTier": 1,
+      "delivered": { "format": "mp3", "bitDepth": null, "samplingRateKHz": 44.1 },
+      "expectedRelativePath": "Aster Vale/(2026) Music for the Moon [Q1]/03. Aster Vale - Quiet orbit.mp3"
+    },
+    {
+      "id": "N-04-tier2",
+      "useLatestDefaults": true,
+      "requestedTier": 2,
+      "delivered": { "format": "flac", "bitDepth": 16, "samplingRateKHz": 44.1 },
+      "expectedRelativePath": "Aster Vale/(2026) Music for the Moon [Q2][16-Bit 44.1kHz]/03. Aster Vale - Quiet orbit.flac"
+    },
+    {
+      "id": "N-04-tier3",
+      "useLatestDefaults": true,
+      "requestedTier": 3,
+      "delivered": { "format": "flac", "bitDepth": 24, "samplingRateKHz": 96 },
+      "expectedRelativePath": "Aster Vale/(2026) Music for the Moon [Q3][24-Bit 96kHz]/03. Aster Vale - Quiet orbit.flac"
+    },
+    {
+      "id": "N-04-tier4",
+      "useLatestDefaults": true,
+      "requestedTier": 4,
+      "delivered": { "format": "flac", "bitDepth": 24, "samplingRateKHz": 192 },
+      "expectedRelativePath": "Aster Vale/(2026) Music for the Moon [Q4][24-Bit 192kHz]/03. Aster Vale - Quiet orbit.flac"
+    },
+    {
+      "id": "N-04-fallback",
+      "useLatestDefaults": true,
+      "requestedTier": 4,
+      "delivered": { "format": "flac", "bitDepth": 16, "samplingRateKHz": 44.1 },
+      "expectedRelativePath": "Aster Vale/(2026) Music for the Moon [Q4][16-Bit 44.1kHz]/03. Aster Vale - Quiet orbit.flac"
+    },
+    {
+      "id": "N-04-missing-year-and-depth",
+      "useLatestDefaults": true,
+      "metadataOverrides": { "year": null },
+      "requestedTier": 1,
+      "delivered": { "format": "mp3", "bitDepth": null, "samplingRateKHz": 44.1 },
+      "expectedRelativePath": "Aster Vale/Music for the Moon [Q1]/03. Aster Vale - Quiet orbit.mp3"
+    }
+  ],
+  "safeComponents": [
+    { "id": "S-02-colon", "input": "Chasing Time: The Bedlam Sessions", "expectedOn": "Chasing Time The Bedlam Sessions", "expectedOff": "Chasing Time_ The Bedlam Sessions" },
+    { "id": "S-02-less", "input": "A<B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-greater", "input": "A>B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-quote", "input": "A\"B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-slash-in-metadata", "input": "A/B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-backslash-in-metadata", "input": "A\\B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-pipe", "input": "A|B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-question", "input": "A?B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-asterisk", "input": "A*B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-control-nul", "input": "A\u0000B", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-control-tab", "input": "A\tB", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-control-lf", "input": "A\nB", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-02-control-last", "input": "A\u001fB", "expectedOn": "AB", "expectedOff": "A_B" },
+    { "id": "S-03-unicode-spaces", "input": "Björk     東京", "expectedOn": "Björk     東京", "expectedOff": "Björk     東京" },
+    { "id": "S-03-edge", "input": "  Album.  ", "expectedOn": "Album", "expectedOff": "Album" }
+  ],
+  "qualityLifecycle": {
+    "id": "Q-02",
+    "initialGlobalTier": 4,
+    "dialogTier": 2,
+    "globalTierAfterSubmission": 3,
+    "expectedOriginalJobAfterRetry": 2,
+    "expectedQueuedJobAfterExplicitApply": 3,
+    "expectedRetryAfterApply": 3,
+    "expectedDownloadAgain": 3,
+    "globalsMutatedByDialog": false,
+    "bookmarksStoreDialogOverride": false
+  },
+  "telemetry": [
+    {
+      "id": "T-01-known-zero",
+      "receivedBytes": 0,
+      "totalBytes": 100000000,
+      "expectedPercent": 0,
+      "expectedIndeterminate": false
+    },
+    {
+      "id": "T-01-unknown",
+      "receivedBytes": 11400000,
+      "totalBytes": null,
+      "expectedPercent": null,
+      "expectedIndeterminate": true
+    },
+    {
+      "id": "T-03-same-percentage",
+      "totalBytes": 100000000,
+      "receivedSequenceBytes": [42100000, 42900000],
+      "expectedIntegerPercentSequence": [42, 42],
+      "requiresUpdatedByteTelemetry": true
+    },
+    {
+      "id": "T-04",
+      "windowMilliseconds": 1000,
+      "activeTransferDeltasBytes": [2000000, 1420000],
+      "excludedLocalOrReusedBytes": 9000000,
+      "expectedBytesPerSecond": 3420000,
+      "expectedDisplay": "3.42 MB/s",
+      "expectedIdleDisplay": "0.00 MB/s"
+    },
+    {
+      "id": "T-05",
+      "receivedBytes": 11400000,
+      "totalBytes": 27200000,
+      "expectedTransferDisplay": "11.4 / 27.2 MB",
+      "finalSizeBytes": 27250000,
+      "expectedFinalDisplay": "27.3 MB"
+    }
+  ],
+  "selectiveClear": {
+    "id": "C-01",
+    "visibleFilter": "Failed",
+    "jobs": [
+      { "id": 101, "internalPhase": "Active", "activity": "transferring", "protected": true },
+      { "id": 102, "internalPhase": "Active", "activity": "processing", "protected": true },
+      { "id": 103, "internalPhase": "Active", "activity": "recovery-backoff", "protected": true },
+      { "id": 104, "internalPhase": "Eligible", "activity": "queued", "protected": false },
+      { "id": 105, "internalPhase": "Planning", "activity": "resolving-before-active-attempt", "protected": false },
+      { "id": 106, "internalPhase": "Held", "activity": "awaiting-large-plan-confirmation", "protected": false },
+      { "id": 107, "internalPhase": "Finished", "activity": "completed", "protected": false },
+      { "id": 108, "internalPhase": "Finished", "activity": "failed", "protected": false },
+      { "id": 109, "internalPhase": "Finished", "activity": "cancelled", "protected": false }
+    ],
+    "expectedRetainedIds": [101, 102, 103],
+    "expectedRemovedIds": [104, 105, 106, 107, 108, 109],
+    "expectedDeletedFinalFiles": [],
+    "classificationTime": "Under queue lock at confirmation execution, not when dialog opened",
+    "note": "These internal phases map the accepted active-versus-pending distinction to current Rust lifecycle; do not use public Downloading text alone."
+  }
+}

@@ -1,0 +1,177 @@
+name: Compile and release
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    uses: ./.github/workflows/windows-ci.yml
+  macos:
+    uses: ./.github/workflows/macos-intel.yml
+  apple-silicon:
+    name: Verify FLAC on Apple silicon
+    needs: macos
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      NEXT_TELEMETRY_DISABLED: '1'
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903
+        with:
+          node-version: '24'
+          architecture: arm64
+      - name: Verify and launch the shipped Intel DMG offline under Rosetta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          printf 'Native architecture: %s\n' "$(uname -m)"
+          /usr/sbin/sysctl machdep.cpu.brand_string
+          if ! /usr/bin/arch -x86_64 /usr/bin/true; then
+            sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+          fi
+          test "$(/usr/bin/arch -x86_64 /usr/sbin/sysctl -in sysctl.proc_translated)" = 1
+          version="$(node -p 'require("./package.json").version')"
+          image="suonelo-$version-macos-x86_64.dmg"
+          package="$(mktemp -d "$RUNNER_TEMP/rosetta-package.XXXXXX")"
+          mount="$(mktemp -d "$RUNNER_TEMP/rosetta-mount.XXXXXX")"
+          gh run download "$GITHUB_RUN_ID" --name mac-package --dir "$package"
+          (cd "$package" && shasum -a 256 -c SHA256SUMS.txt)
+          shasum -a 256 "$package/$image"
+          hdiutil verify -quiet "$package/$image"
+          hdiutil attach -quiet -readonly -nobrowse -mountpoint "$mount" "$package/$image"
+          trap 'hdiutil detach -quiet "$mount"' EXIT
+          bash scripts/build-macos.sh --smoke-mounted "$mount/suonelo.app"
+      - name: Build and test natively
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("src-tauri/Cargo.toml", "rb"))["package"]["rust-version"])')
+          rustup toolchain install "$version" --profile minimal --target aarch64-apple-darwin,x86_64-apple-darwin
+          export RUSTUP_TOOLCHAIN="$version"
+          bash scripts/build-macos.sh --app
+          echo "RUSTUP_TOOLCHAIN=$version" >> "$GITHUB_ENV"
+      - name: Run Intel media tests under Rosetta with and without access to ARM FLAC
+        run: |
+          set -euo pipefail
+          flac=/opt/homebrew/bin/flac
+          if [[ ! -x "$flac" ]]; then
+            HOMEBREW_NO_AUTO_UPDATE=1 /opt/homebrew/bin/brew install flac
+          fi
+          test -x "$flac"
+          test "$(lipo -archs "$flac")" = arm64
+          /usr/bin/arch -arm64 "$flac" --version
+          flac_real="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$flac")"
+          test -f "$flac_real"
+          candidates=("$flac" /opt/homebrew/opt/flac/bin/flac "$flac_real")
+
+          artifacts="$(mktemp "$RUNNER_TEMP/rosetta-test-artifacts.XXXXXX")"
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --target x86_64-apple-darwin \
+            --bin suonelo --no-run --message-format=json-render-diagnostics > "$artifacts"
+          test_binary="$(python3 - "$artifacts" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1]) as artifacts:
+              executables = [
+                  artifact["executable"]
+                  for artifact in map(json.loads, artifacts)
+                  if artifact["reason"] == "compiler-artifact"
+                  and artifact["target"]["name"] == "suonelo"
+                  and artifact["profile"]["test"]
+                  and artifact["executable"]
+              ]
+          if len(executables) != 1:
+              sys.exit(f"Expected one suonelo test executable, got {executables}")
+          print(executables[0])
+          PY
+          )"
+          test -x "$test_binary"
+          test "$(lipo -archs "$test_binary")" = x86_64
+          PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+          export PATH
+
+          echo 'Running Intel media tests with ARM FLAC reachable'
+          for candidate in "${candidates[@]}"; do
+            /usr/bin/arch -x86_64 /bin/cat "$candidate" >/dev/null
+          done
+          /usr/bin/arch -x86_64 "$test_binary" media::
+
+          echo 'Running the same Intel media tests with ARM FLAC and networking blocked'
+          offline=(
+            /usr/bin/sandbox-exec
+            -D "FLAC_REAL=$flac_real"
+            -p '(version 1)
+                (allow default)
+                (deny network*)
+                (deny file-read* process-exec
+                  (literal "/opt/homebrew/bin/flac")
+                  (literal "/opt/homebrew/opt/flac/bin/flac")
+                  (literal (param "FLAC_REAL")))'
+          )
+          # Confirm the profile loads and permits ordinary reads while blocking all FLAC aliases.
+          "${offline[@]}" /usr/bin/arch -x86_64 /bin/cat /etc/hosts >/dev/null
+          for candidate in "${candidates[@]}"; do
+            if "${offline[@]}" /usr/bin/arch -x86_64 /bin/cat "$candidate" >/dev/null ||
+               "${offline[@]}" /usr/bin/arch -arm64 "$candidate" --version; then
+              echo "Sandbox left FLAC accessible at $candidate" >&2
+              exit 1
+            fi
+          done
+          "${offline[@]}" /usr/bin/arch -x86_64 "$test_binary" media::
+  release:
+    needs: [windows, macos, apple-silicon]
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    concurrency: release-${{ github.ref }}
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - name: Check release version
+        id: version
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          if [[ "$GITHUB_REF_NAME" == "v$version" ]]; then
+            grep -Fq "## [$version] -" docs/CHANGELOG.md
+            echo "match=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify and publish packages
+        if: steps.version.outputs.match == 'true'
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" -n windows-package -D packages
+          gh run download "$GITHUB_RUN_ID" -n mac-package -D packages
+          cd packages
+          version=${GITHUB_REF_NAME#v}
+          zip="suonelo-$version-windows-x64.zip"
+          dmg="suonelo-$version-macos-x86_64.dmg"
+          sha256sum -c "$zip.sha256"
+          sha256sum -c SHA256SUMS.txt
+          sha256sum "$zip" "$dmg" > SHA256SUMS.txt
+          title="suonelo $GITHUB_REF_NAME"
+          notes="Windows x64 portable ZIP and unsigned macOS Intel DMG. Apple silicon requires Rosetta. SHA256SUMS.txt covers both downloads."
+          # A newer tag push can supersede a running build.
+          test "$(gh api "repos/$GH_REPO/commits/$GITHUB_REF_NAME" --jq .sha)" = "$(git rev-parse HEAD)"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$zip" "$dmg" SHA256SUMS.txt --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes "$notes"
+          else
+            gh release create "$GITHUB_REF_NAME" "$zip" "$dmg" SHA256SUMS.txt --verify-tag --title "$title" --notes "$notes"
+          fi

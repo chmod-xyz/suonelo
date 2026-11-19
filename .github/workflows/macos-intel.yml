@@ -1,0 +1,154 @@
+name: macOS Intel CI
+
+on: workflow_call
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MACOSX_DEPLOYMENT_TARGET: '13.0'
+  NEXT_TELEMETRY_DISABLED: '1'
+  CARGO_INCREMENTAL: '0'
+  RUST_TARGET: x86_64-apple-darwin
+
+jobs:
+  build:
+    name: Build macOS (x86_64)
+    runs-on: macos-26-intel
+    timeout-minutes: 60
+    steps:
+      - name: Check out build inputs
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /app/
+            /components/
+            /lib/
+            /public/
+            /.gitignore
+            /next.config.ts
+            /next-env.d.ts
+            /package.json
+            /package-lock.json
+            /postcss.config.mjs
+            /tsconfig.json
+            /scripts/build-macos.sh
+            /scripts/build-macos-stable.py
+            /scripts/scan-macos-release-privacy.py
+            /src-tauri/src/
+            /src-tauri/capabilities/
+            /src-tauri/icons/
+            /src-tauri/tests/
+            /src-tauri/build.rs
+            /src-tauri/Cargo.toml
+            /src-tauri/Cargo.lock
+            /src-tauri/deny.toml
+            /src-tauri/tauri.conf.json
+            /src-tauri/tauri.macos.conf.json
+            /docs/CHANGELOG.md
+            /ASSET-NOTICES.md
+            /LICENSE
+            /licenses/
+
+      - name: Set up native Node.js
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '24'
+          architecture: x64
+          package-manager-cache: false
+
+      - name: Install the native Rust toolchain
+        id: rust
+        run: |
+          test "$(uname -m)" = x86_64
+          rust_version="$(python3 -c 'import tomllib; print(tomllib.load(open("src-tauri/Cargo.toml", "rb"))["package"]["rust-version"])')"
+          [[ "$rust_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          rustup toolchain install "$rust_version" --profile minimal --target "$RUST_TARGET"
+          printf 'RUSTUP_TOOLCHAIN=%s\n' "$rust_version" >> "$GITHUB_ENV"
+
+      - name: Audit the npm lockfile
+        run: npm audit --audit-level=high
+
+      - name: Audit Rust dependencies for this macOS target
+        if: ${{ !cancelled() && steps.rust.outcome == 'success' }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          cargo install cargo-deny --version 0.20.2 --locked --root "$RUNNER_TEMP/cargo-deny"
+          "$RUNNER_TEMP/cargo-deny/bin/cargo-deny" \
+            --manifest-path "$GITHUB_WORKSPACE/src-tauri/Cargo.toml" \
+            --config "$GITHUB_WORKSPACE/src-tauri/deny.toml" \
+            --locked --target "$RUST_TARGET" check advisories
+
+      - name: Test and bundle the native app
+        run: python3 scripts/build-macos-stable.py
+
+      - name: Verify lockfiles stayed unchanged
+        run: git diff --exit-code HEAD -- package-lock.json src-tauri/Cargo.lock
+
+      - name: Package, verify and launch the app from the unsigned DMG
+        id: package
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          artifact="suonelo-$version-macos-x86_64"
+          app="src-tauri/target/$RUST_TARGET/release/bundle/macos/suonelo.app"
+          staging="$(mktemp -d "$RUNNER_TEMP/dmg-source.XXXXXX")"
+          mount="$(mktemp -d "$RUNNER_TEMP/dmg-mount.XXXXXX")"
+          output="$RUNNER_TEMP/suonelo-release"
+          dmg="$output/$artifact.dmg"
+          mkdir "$output"
+          ditto --norsrc --noextattr --noqtn "$app" "$staging/suonelo.app"
+          ln -s /Applications "$staging/Applications"
+          mkdir "$staging/Notices"
+          cp docs/CHANGELOG.md ASSET-NOTICES.md LICENSE licenses/*.txt "$staging/Notices/"
+          hdiutil create -quiet -volname suonelo -fs HFS+ -srcfolder "$staging" -format UDZO "$dmg"
+          hdiutil verify -quiet "$dmg"
+          if signature="$(LC_ALL=C codesign --display "$dmg" 2>&1)" ||
+             [[ "$signature" != *'code object is not signed at all'* ]]; then
+            echo 'Expected an unsigned DMG.' >&2
+            exit 1
+          fi
+          hdiutil attach -quiet -readonly -nobrowse -mountpoint "$mount" "$dmg"
+          trap 'hdiutil detach -quiet "$mount"' EXIT
+
+          mounted_app="$mount/suonelo.app"
+          codesign --verify --deep --strict "$mounted_app"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$mounted_app/Contents/Info.plist")"
+          binary="$mounted_app/Contents/MacOS/$executable"
+          test -x "$binary"
+          cmp -s "$app/Contents/MacOS/$executable" "$binary"
+          test "$(lipo -archs "$binary")" = x86_64
+          [[ "$(file -b "$binary")" == 'Mach-O 64-bit executable x86_64'* ]]
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mounted_app/Contents/Info.plist")" = "$version"
+          test "$(readlink "$mount/Applications")" = /Applications
+          for notice in "$staging/Notices/"*; do
+            cmp -s "$notice" "$mount/Notices/${notice##*/}"
+          done
+          # Ignore the generic CI account name as a bare substring. The scanner still checks home and temp paths.
+          LOGNAME=ci python3 scripts/scan-macos-release-privacy.py "$mounted_app"
+          LOGNAME=ci python3 scripts/scan-macos-release-privacy.py "$mount/Notices"
+
+          bash scripts/build-macos.sh --smoke-mounted "$mounted_app"
+
+          printf 'artifact=%s\n' "$artifact" >> "$GITHUB_OUTPUT"
+
+      - name: Generate and verify the DMG SHA-256 checksum
+        working-directory: ${{ runner.temp }}/suonelo-release
+        env:
+          DMG_NAME: ${{ steps.package.outputs.artifact }}.dmg
+        run: |
+          shasum -a 256 "$DMG_NAME" > SHA256SUMS.txt
+          shasum -a 256 -c SHA256SUMS.txt
+
+      - name: Upload the verified DMG and checksum
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mac-package
+          path: ${{ runner.temp }}/suonelo-release/
+          if-no-files-found: error
+          compression-level: 0

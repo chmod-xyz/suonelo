@@ -1,0 +1,185 @@
+{
+  "documentationBase": "qbdlx-rs/docs",
+  "scope": "Mockup fixtures. Byte hex/text recipes are exact; no Rust import implementation is claimed.",
+  "limitBytes": 2000000,
+  "encoding": "UTF-8 with optional initial UTF-8 BOM; reject UTF-16",
+  "cases": [
+    {
+      "id": "utf8-valid",
+      "name": "valid.txt",
+      "text": "https://play.qobuz.com/album/r4-moon\nhttps://open.qobuz.com/track/r4-orbit\n",
+      "valid": true,
+      "unique": 2,
+      "bytes": 75,
+      "path": "docs/desktop/assets/round4/fixtures/valid.txt"
+    },
+    {
+      "id": "utf8-bom",
+      "name": "BOM.TXT",
+      "hex": "efbbbf68747470733a2f2f706c61792e716f62757a2e636f6d2f616c62756d2f72342d626f6d0d0a",
+      "valid": true,
+      "unique": 1,
+      "bytes": 40,
+      "path": "docs/desktop/assets/round4/fixtures/BOM.TXT"
+    },
+    {
+      "id": "whitespace",
+      "name": "whitespace.txt",
+      "text": " \r\nhttps://play.qobuz.com/album/r4-space\thttps://play.qobuz.com/track/r4-space\n\n",
+      "valid": true,
+      "unique": 2,
+      "bytes": 80,
+      "path": "docs/desktop/assets/round4/fixtures/whitespace.txt"
+    },
+    {
+      "id": "duplicates",
+      "name": "duplicates.txt",
+      "text": "https://play.qobuz.com/album/r4-dupe\nhttps://www.qobuz.com/us-en/album/title/r4-dupe?x=1#top\nhttps://open.qobuz.com/track/r4-dupe\n",
+      "valid": true,
+      "unique": 2,
+      "duplicates": 1,
+      "bytes": 130,
+      "path": "docs/desktop/assets/round4/fixtures/duplicates.txt"
+    },
+    {
+      "id": "mixed-lines",
+      "name": "mixed.txt",
+      "text": "https://play.qobuz.com/album/r4-valid\n\nnot-a-url\nhttps://example.com/album/no\n",
+      "valid": false,
+      "invalidLines": [
+        3,
+        4
+      ],
+      "bytes": 78,
+      "path": "docs/desktop/assets/round4/fixtures/mixed.txt"
+    },
+    {
+      "id": "unsupported-http",
+      "name": "http.txt",
+      "text": "http://play.qobuz.com/album/r4-no",
+      "valid": false,
+      "bytes": 33,
+      "path": "docs/desktop/assets/round4/fixtures/http.txt"
+    },
+    {
+      "id": "empty",
+      "name": "empty.txt",
+      "text": "",
+      "valid": false,
+      "bytes": 0,
+      "path": "docs/desktop/assets/round4/fixtures/empty.txt"
+    },
+    {
+      "id": "blank",
+      "name": "blank.txt",
+      "text": " \r\n\t",
+      "valid": false,
+      "bytes": 4,
+      "path": "docs/desktop/assets/round4/fixtures/blank.txt"
+    },
+    {
+      "id": "wrong-extension",
+      "name": "urls.csv",
+      "text": "https://play.qobuz.com/album/r4-no",
+      "valid": false,
+      "bytes": 34,
+      "path": "docs/desktop/assets/round4/fixtures/urls.csv"
+    },
+    {
+      "id": "renamed-binary",
+      "name": "picture.txt",
+      "hex": "89504e470d0a1a0a00000000",
+      "valid": false,
+      "bytes": 12,
+      "path": "docs/desktop/assets/round4/fixtures/picture.txt"
+    },
+    {
+      "id": "invalid-utf8",
+      "name": "invalid-utf8.txt",
+      "hex": "c328",
+      "valid": false,
+      "bytes": 2,
+      "path": "docs/desktop/assets/round4/fixtures/invalid-utf8.txt"
+    },
+    {
+      "id": "utf16-rejected",
+      "name": "utf16.txt",
+      "hex": "fffe680074007400700073003a002f002f0070006c00610079002e0071006f00620075007a002e0063006f006d002f0061006c00620075006d002f00720034002d006e006f00",
+      "valid": false,
+      "bytes": 70,
+      "path": "docs/desktop/assets/round4/fixtures/utf16.txt"
+    },
+    {
+      "id": "nul-control",
+      "name": "nul.txt",
+      "text": "https://play.qobuz.com/album/r4-no\u0000",
+      "valid": false,
+      "bytes": 35,
+      "path": "docs/desktop/assets/round4/fixtures/nul.txt"
+    },
+    {
+      "id": "comments",
+      "name": "comments.txt",
+      "text": "# Qobuz links\nhttps://play.qobuz.com/album/r4-no",
+      "valid": false,
+      "bytes": 48,
+      "path": "docs/desktop/assets/round4/fixtures/comments.txt"
+    },
+    {
+      "id": "url-userinfo",
+      "name": "userinfo.txt",
+      "text": "https://person@play.qobuz.com/album/r4-no",
+      "valid": false,
+      "bytes": 41,
+      "path": "docs/desktop/assets/round4/fixtures/userinfo.txt"
+    },
+    {
+      "id": "url-port",
+      "name": "port.txt",
+      "text": "https://play.qobuz.com:444/album/r4-no",
+      "valid": false,
+      "bytes": 38,
+      "path": "docs/desktop/assets/round4/fixtures/port.txt"
+    },
+    {
+      "id": "path-depth",
+      "name": "depth.txt",
+      "text": "https://play.qobuz.com/a/b/album/r4-no",
+      "valid": false,
+      "bytes": 38,
+      "path": "docs/desktop/assets/round4/fixtures/depth.txt"
+    },
+    {
+      "id": "path-alias",
+      "name": "aliases.txt",
+      "text": "https://www.qobuz.com/gb-en/playlists/name/r4-list\nhttps://qobuz.com/fr-fr/interpreter/name/r4-artist",
+      "valid": true,
+      "unique": 2,
+      "bytes": 101,
+      "path": "docs/desktop/assets/round4/fixtures/aliases.txt"
+    },
+    {
+      "id": "unicode-whitespace",
+      "name": "unicode-whitespace.txt",
+      "text": "https://play.qobuz.com/album/r4-ahttps://play.qobuz.com/album/r4-b",
+      "valid": true,
+      "unique": 2,
+      "bytes": 68,
+      "path": "docs/desktop/assets/round4/fixtures/unicode-whitespace.txt"
+    },
+    {
+      "id": "embedded-bom-invalid",
+      "name": "embedded-bom.txt",
+      "text": "https://play.qobuz.com/album/r4-a﻿https://play.qobuz.com/album/r4-b",
+      "valid": false,
+      "bytes": 69,
+      "path": "docs/desktop/assets/round4/fixtures/embedded-bom.txt"
+    }
+  ],
+  "boundaryRecipe": {
+    "url": "https://play.qobuz.com/album/r4-limit",
+    "padding": "U+0020 spaces to raw byte lengths 2,000,000 and 2,000,001",
+    "expectedAtLimit": true,
+    "expectedOverLimit": false
+  }
+}
