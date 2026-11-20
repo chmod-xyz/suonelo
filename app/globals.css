@@ -768,12 +768,16 @@ textarea {
 }
 
 @media (max-width:480px) {
-  .columns {
-    display: none;
+  .columns,.job {
+    grid-template-columns: minmax(0,1fr) 104px;
   }
 
-  .job {
-    grid-template-columns: minmax(0,1fr) auto;
+  .columns > :nth-child(2),.columns > :last-child {
+    grid-area: 1 / 2;
+  }
+
+  .columns > :last-child {
+    justify-self: end;
   }
 
   .job .actions {
@@ -1137,13 +1141,6 @@ button[data-action=apply-queued] {
 .chipbox h3 {
   font-size: 15px;
   letter-spacing: normal;
-}
-
-@media (max-width:480px) {
-  .job {
-    grid-template-columns: minmax(0,1fr) 104px;
-  }
-
 }
 
 @media (prefers-reduced-motion:reduce) {
