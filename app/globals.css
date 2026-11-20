@@ -397,7 +397,7 @@ h2 {
   justify-content: flex-end;
 }
 
-.job .actions .with-icon {
+.job .actions .with-icon,.file-status .with-icon {
   min-height: 36px;
   flex: none;
   width: 40px;
@@ -405,7 +405,7 @@ h2 {
   padding: 0;
 }
 
-.job .actions button[aria-disabled=true] {
+.job .actions button[aria-disabled=true],.file-status button[aria-disabled=true] {
   opacity: .45;
   cursor: default;
 }
@@ -456,6 +456,7 @@ h2 {
 .track {
   display: grid;
   grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
   gap: 12px;
   padding: 8px 0;
   border-top: 1px solid var(--line);
@@ -1188,15 +1189,10 @@ dialog {
 
 .file-status {
   display: flex;
-  gap: 6px;
+  gap: 12px;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-}
-
-.file-status button {
-  padding: 4px 6px;
-  font-size: 12px;
 }
 
 .status.retrying,.conflict-path {

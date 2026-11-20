@@ -1,6 +1,6 @@
 import { isMac } from "@/lib/platform";
 import { Tooltip } from "@base-ui/react/tooltip";
-import { Bookmark as BookmarkIcon, ChevronRight, Download, FolderOpen, Plus, RotateCw, Trash2, UserRound, X } from "lucide-react";
+import { Bookmark as BookmarkIcon, ChevronRight, Download, FilePenLine, FolderOpen, Plus, RotateCw, Trash2, UserRound, X, type LucideIcon } from "lucide-react";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import { desktop, type Bookmark, type BookmarkScope, type FileItem, type Job } from "@/lib/desktop";
 import { Button, interactiveTarget, Progress } from "./ui/primitives";
@@ -75,9 +75,10 @@ function fileStatus(file: FileItem) {
   return labels[file.status];
 }
 
-function Files({ files, bookletOnly, canRetry, retry, openFolder, replace, paused }: {
-  files: FileItem[]; bookletOnly: boolean; canRetry: boolean; retry: (id: number) => void; openFolder: (id: number) => void;
-  replace: (file: FileItem) => void; paused: boolean;
+function Files({ files, bookletOnly, canRetry, retry, openFolder, replace, paused, tooltip }: {
+  files: FileItem[]; bookletOnly: boolean; canRetry: boolean;
+  retry: (id: number) => Promise<void>; openFolder: (id: number) => Promise<void>;
+  replace: (file: FileItem) => void; paused: boolean; tooltip: ReleaseTooltip;
 }) {
   let lastGroup: string | null = null;
   return files.map(file => {
@@ -90,8 +91,8 @@ function Files({ files, bookletOnly, canRetry, retry, openFolder, replace, pause
     return (
       <Fragment key={file.id}>
         {showGroup && <div className="disc">{group}</div>}
-        <div className="track" title={file.conflictPath ?? file.path ?? undefined}>
-          <div className="file-copy">
+        <div className="track">
+          <div className="file-copy" title={file.conflictPath ?? file.path ?? undefined}>
             {file.kind !== "audio" && `${kindLabels[file.kind]} · `}{file.title}
             {file.quality && <span className="quality"> · {file.quality}</span>}
             {file.reused && <span className="quality"> · Verified existing file</span>}
@@ -108,17 +109,16 @@ function Files({ files, bookletOnly, canRetry, retry, openFolder, replace, pause
               <span className={`status ${file.status}`}>{fileStatus(file)}</span>
             </span>
             {file.conflictPath && (
-              <Button className="with-icon" onClick={() => openFolder(file.id)}>
-                <FolderOpen className="icon" aria-hidden /> Open containing folder
-              </Button>
+              <DownloadActionButton tooltip={tooltip} Icon={FolderOpen} label="Open containing folder"
+                unavailable="Folder cannot be opened" onAction={() => openFolder(file.id)} />
             )}
             {file.status === "failed" && file.independentRetry && (
-              <Button className="with-icon" disabled={!canRetry} onClick={() => retry(file.id)}>
-                <RotateCw className="icon" aria-hidden /> Retry {kindLabels[file.kind].toLowerCase()}
-              </Button>
+              <DownloadActionButton tooltip={tooltip} Icon={RotateCw} label={`Retry ${kindLabels[file.kind].toLowerCase()}`}
+                unavailable="Retry cannot be done" available={canRetry} onAction={() => retry(file.id)} />
             )}
             {file.status === "failed" && file.conflictPath && file.replacementToken && (
-              <Button className="danger" disabled={!canRetry} onClick={() => replace(file)}>Replace saved audio</Button>
+              <DownloadActionButton tooltip={tooltip} Icon={FilePenLine} label="Replace saved audio" className="danger"
+                unavailable="Cannot replace saved audio" available={canRetry} onAction={() => replace(file)} />
             )}
           </span>
         </div>
@@ -129,9 +129,9 @@ function Files({ files, bookletOnly, canRetry, retry, openFolder, replace, pause
 
 export interface JobActions {
   retry: (id: number) => Promise<void>;
-  retryFile: (jobId: number, fileId: number) => void;
+  retryFile: (jobId: number, fileId: number) => Promise<void>;
   replaceFile: (jobId: number, file: FileItem) => void;
-  openFolder: (jobId: number, fileId: number) => void;
+  openFolder: (jobId: number, fileId: number) => Promise<void>;
   openReleaseFolder: (id: number) => Promise<void>;
   cancel: (id: number) => Promise<void>;
   remove: (id: number) => Promise<void>;
@@ -146,12 +146,11 @@ const releaseActions = {
 
 type ReleaseTooltip = Tooltip.Handle<{ id: string; text: string }>;
 
-function ReleaseActionButton({ action, tooltip, available = true, onAction, recheck }: {
-  action: keyof typeof releaseActions; tooltip: ReleaseTooltip; available?: boolean;
-  onAction: () => Promise<void>; recheck?: () => void;
+function DownloadActionButton({ Icon, label, unavailable, tooltip, available = true, onAction, recheck, className }: {
+  Icon: LucideIcon; label: string; unavailable: string; tooltip: ReleaseTooltip; available?: boolean;
+  onAction: () => void | Promise<void>; recheck?: () => void; className?: string;
 }) {
   const [pending, setPending] = useState(false);
-  const { Icon, label, unavailable } = releaseActions[action];
   const disabled = !available || pending;
   const descriptionId = useId();
   const description = disabled ? unavailable : label;
@@ -160,7 +159,7 @@ function ReleaseActionButton({ action, tooltip, available = true, onAction, rech
   return (
     <Tooltip.Trigger handle={tooltip} payload={payload}
       render={(props, state) => <Button {...props} aria-describedby={state.open ? descriptionId : undefined} />}
-      className={action === "remove" ? "ghost with-icon" : "with-icon"}
+      className={className ? `with-icon ${className}` : "with-icon"}
       aria-label={label} aria-disabled={disabled || undefined} onFocus={recheck} onPointerEnter={recheck}
       onClick={async () => {
         if (disabled) return;
@@ -177,22 +176,25 @@ function ReleaseFolderButton({ job, open, tooltip }: {
   job: Job; open: () => Promise<void>; tooltip: ReleaseTooltip;
 }) {
   const [refresh, setRefresh] = useState(0);
-  const [verifiedEvidence, setVerifiedEvidence] = useState<string>();
-  const eligible = job.status === "completed" || job.status === "incomplete";
-  const evidence = JSON.stringify([job.id, job.generation, job.status, job.files.map(file => [file.id, file.status, file.path])]);
-  const available = eligible && verifiedEvidence === evidence;
+  const [verified, setVerified] = useState(false);
+  const savedFiles = primaryFiles(job).filter(file => file.status === "completed" && file.path);
+  const eligible = savedFiles.length > 0;
+  const evidence = JSON.stringify(savedFiles.map(file => [file.id, file.path]));
   const recheck = () => setRefresh(value => value + 1);
 
   useEffect(() => {
-    if (!eligible) return;
+    if (!eligible) {
+      setVerified(false);
+      return;
+    }
     let active = true;
     void desktop.releaseFolderStatus(job.id).then(result => {
-      if (active) setVerifiedEvidence(result.available ? evidence : undefined);
-    }).catch(() => { if (active) setVerifiedEvidence(undefined); });
+      if (active) setVerified(result.available);
+    }).catch(() => { if (active) setVerified(false); });
     return () => { active = false; };
   }, [eligible, evidence, refresh, job.id]);
 
-  return <ReleaseActionButton action="folder" tooltip={tooltip} available={available}
+  return <DownloadActionButton {...releaseActions.folder} tooltip={tooltip} available={eligible && verified}
     recheck={eligible ? recheck : undefined} onAction={() => open().finally(recheck)} />;
 }
 
@@ -236,15 +238,17 @@ function QueueEntry({ job, actions, open, toggle, paused, tooltip }: {
           </div>
           <div className="actions">
             <ReleaseFolderButton job={job} tooltip={tooltip} open={() => actions.openReleaseFolder(job.id)} />
-            <ReleaseActionButton action="cancel" tooltip={tooltip} available={active} onAction={() => actions.cancel(job.id)} />
-            <ReleaseActionButton action="retry" tooltip={tooltip} available={active ? job.driveBlocked === true : job.status !== "completed"}
+            <DownloadActionButton {...releaseActions.cancel} tooltip={tooltip} available={active} onAction={() => actions.cancel(job.id)} />
+            <DownloadActionButton {...releaseActions.retry} tooltip={tooltip}
+              available={job.canRetry ?? (active ? job.driveBlocked === true : job.status !== "completed")}
               onAction={() => actions.retry(job.id)} />
-            <ReleaseActionButton action="remove" tooltip={tooltip} onAction={() => actions.remove(job.id)} />
+            <DownloadActionButton {...releaseActions.remove} tooltip={tooltip} onAction={() => actions.remove(job.id)} />
           </div>
         </div>
         <ReleaseDetails id={details} open={open}>
           {job.reason && <div className={job.status === "failed" ? "notice error" : "notice"}>{job.reason}</div>}
-          <Files files={job.files} paused={paused} bookletOnly={job.mode === "booklet"} canRetry={!active} retry={fileId => actions.retryFile(job.id, fileId)}
+          <Files files={job.files} paused={paused} bookletOnly={job.mode === "booklet"} canRetry={!active} tooltip={tooltip}
+            retry={fileId => actions.retryFile(job.id, fileId)}
             replace={file => actions.replaceFile(job.id, file)}
             openFolder={fileId => actions.openFolder(job.id, fileId)} />
           {!job.reason && job.files.length === 0 && <p className="notice">Waiting for the file plan.</p>}

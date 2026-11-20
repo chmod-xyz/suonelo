@@ -73,6 +73,7 @@ export interface Job {
   thumbnail?: string | null;
   resourceKind?: string;
   driveBlocked?: boolean;
+  canRetry?: boolean;
   reason?: string | null;
   files: FileItem[];
 }

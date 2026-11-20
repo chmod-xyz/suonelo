@@ -839,7 +839,7 @@ pub async fn release_folder_status(app: Managed<'_>, job_id: u64) -> Result<Rele
     let app = app.inner().clone();
     blocking(move || {
         let evidence = app.state().queue.release_folder_evidence(job_id);
-        let result = evidence.and_then(crate::release_folder::resolve);
+        let result = evidence.and_then(crate::release_folder::select);
         Ok(ReleaseFolderStatus {
             available: result.is_ok(),
             reason: result.err().map(|error| error.message),
@@ -853,18 +853,18 @@ pub async fn open_release_folder(app: Managed<'_>, job_id: u64) -> Result<()> {
     let app = app.inner().clone();
     let resolved = blocking(move || {
         let evidence = app.state().queue.release_folder_evidence(job_id)?;
-        let folder = crate::release_folder::resolve(evidence.clone())?;
-        // Recheck the logical job after potentially slow filesystem access.
-        if app.state().queue.release_folder_evidence(job_id)? != evidence {
+        let folder = crate::release_folder::select(evidence)?;
+        // Another file may finish during verification. Only the chosen witness must still match.
+        if !app.state().queue.release_folder_evidence(job_id)?.contains(&folder.evidence) {
             return Err(AppError::invalid(
                 "queue",
                 "The release output changed. Check its folder again.",
             ));
         }
         #[cfg(target_os = "macos")]
-        return Ok(folder);
+        return Ok(folder.path);
         #[cfg(not(target_os = "macos"))]
-        crate::release_folder::open(&folder)
+        crate::release_folder::open(&folder.path)
     })
     .await;
     #[cfg(target_os = "macos")]

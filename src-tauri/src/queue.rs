@@ -130,6 +130,7 @@ pub struct JobDto {
     pub status: Status,
     pub reason: Option<String>,
     pub drive_blocked: bool,
+    pub can_retry: bool,
     pub files: Vec<FileDto>,
 }
 
@@ -220,6 +221,7 @@ enum Extra {
     Playlist,
 }
 
+#[derive(Clone)]
 pub struct Job {
     pub link: CanonicalResource,
     dto: JobDto,
@@ -241,6 +243,7 @@ pub struct Job {
     blocked_destination: Option<PathBuf>,
     playlist_path: Option<PathBuf>,
     playlist_reserved: bool,
+    playlist_only_status: Option<(Status, Option<String>)>,
     artwork_failures: BTreeMap<(String, PathBuf), media::MediaError>,
     missing_embedded: BTreeSet<usize>,
     quality_override: Option<u8>,
@@ -249,14 +252,28 @@ pub struct Job {
     search_origin: bool,
     replacements: HashMap<u64, AudioReplacement>,
     approved_replacement: Option<(u64, AudioReplacement)>,
+    row_order: (u64, usize),
+    album_row: bool,
+    playlist: Option<PlaylistMember>,
 }
 
 impl Job {
+    fn can_retry_drive(&self) -> bool {
+        matches!(self.phase, Phase::Active | Phase::Eligible) && self.dto.drive_blocked
+    }
+
+    fn has_unfinished_files(&self) -> bool {
+        self.dto.files.iter().any(retryable_file)
+    }
+
     fn snapshot(&self) -> JobDto {
         let mut dto = self.dto.clone();
         dto.generation = self.generation;
         dto.progress = release_progress(self);
         dto.clearable = self.phase != Phase::Active;
+        dto.can_retry = self.can_retry_drive()
+            || (!self.running && self.phase == Phase::Finished
+                && (self.dto.status != Status::Completed || self.has_unfinished_files()));
         dto
     }
 }
@@ -291,10 +308,26 @@ struct Batch {
     planning: bool,
 }
 
+#[derive(Clone)]
+struct PlaylistMember {
+    group: u64,
+    positions: Vec<usize>,
+}
+
+struct PlaylistGroup {
+    source_id: String,
+    title: String,
+    members: Vec<u64>,
+    saved: BTreeMap<usize, PathBuf>,
+    output: Option<PathBuf>,
+    pending: bool,
+}
+
 #[derive(Default)]
 pub struct Queue {
     pub jobs: BTreeMap<u64, Job>,
     batches: BTreeMap<u64, Batch>,
+    playlists: BTreeMap<u64, PlaylistGroup>,
     next_id: u64,
     next_batch: u64,
     revision: u64,
@@ -351,8 +384,15 @@ impl Queue {
     fn admission_head(&self) -> Option<u64> {
         self.jobs
             .values()
-            .find(|job| job.phase != Phase::Finished)
+            .filter(|job| job.phase != Phase::Finished)
+            .min_by_key(|job| job.row_order)
             .map(|job| job.dto.id)
+    }
+
+    fn ordered_jobs(&self) -> Vec<&Job> {
+        let mut jobs: Vec<_> = self.jobs.values().collect();
+        jobs.sort_unstable_by_key(|job| job.row_order);
+        jobs
     }
 
     pub fn set_user_pause(&mut self, paused: bool, recovery: &crate::recovery::Recovery) {
@@ -386,7 +426,7 @@ impl Queue {
                 .admitted
                 .first()
                 .and_then(|id| self.jobs.get(id))
-                .or_else(|| queued.next());
+                .or_else(|| queued.min_by_key(|job| job.row_order));
             return Some(head.map_or(self.saved_limit, |job| job.settings.max_connections));
         }
         let limit = queued
@@ -400,7 +440,7 @@ impl Queue {
     pub fn snapshot(&self) -> QueueSnapshot {
         QueueSnapshot {
             revision: self.revision,
-            jobs: self.jobs.values().map(Job::snapshot).collect(),
+            jobs: self.ordered_jobs().into_iter().map(Job::snapshot).collect(),
             confirmations: self
                 .batches
                 .values()
@@ -597,6 +637,7 @@ impl Queue {
                             status: Status::Queued,
                             reason: Some(reason.into()),
                             drive_blocked: false,
+                            can_retry: false,
                             files: Vec::new(),
                         },
                         link,
@@ -618,6 +659,7 @@ impl Queue {
                         blocked_destination: None,
                         playlist_path: None,
                         playlist_reserved: false,
+                        playlist_only_status: None,
                         artwork_failures: BTreeMap::new(),
                         missing_embedded: BTreeSet::new(),
                         quality_override,
@@ -626,6 +668,9 @@ impl Queue {
                         search_origin: false,
                         replacements: HashMap::new(),
                         approved_replacement: None,
+                        row_order: (id, 0),
+                        album_row: false,
+                        playlist: None,
                     },
                 );
                 id
@@ -680,6 +725,143 @@ impl Queue {
         changed
     }
 
+    fn install_album_rows(&mut self, id: u64, plan: &ResolvedResource) {
+        let template = self.jobs[&id].clone();
+        let parent_kind = template.link.key.kind;
+        let playlist = parent_kind == ResourceKind::Playlist;
+        let mut members = Vec::new();
+
+        for (index, (album, positions)) in release_groups(plan).into_iter().enumerate() {
+            let row_id = if index == 0 { id } else {
+                self.next_id += 1;
+                self.next_id
+            };
+            let tracks: Vec<_> = positions.iter().map(|index| plan.tracks[*index].clone()).collect();
+            let metadata = &tracks[0].album;
+            let title = metadata["title"].as_str().filter(|title| !title.is_empty())
+                .unwrap_or(&tracks[0].title).to_owned();
+            let artist = metadata["artist"]["name"].as_str().filter(|artist| !artist.is_empty()).map(str::to_owned);
+            let album_plan = Arc::new(ResolvedResource {
+                title,
+                tracks,
+                thumbnail_url: None,
+                thumbnail: None,
+            });
+            let mut job = template.clone();
+            if let Ok(link) = crate::qobuz::normalize_link(&format!("https://play.qobuz.com/album/{album}")) {
+                job.link = link;
+                job.dto.url.clone_from(&job.link.original_url);
+            }
+            job.dto.id = row_id;
+            job.dto.resource_kind = ResourceKind::Album;
+            job.row_order = (id, index);
+            job.album_row = true;
+            job.playlist = playlist.then_some(PlaylistMember { group: id, positions });
+            job.cancel = CancellationToken::new();
+            job.activity_at = None;
+            job.dto.title.clone_from(&album_plan.title);
+            job.dto.thumbnail = None;
+            plan_file_rows(&mut job, &album_plan);
+            job.dto.subtitle = artist.unwrap_or_else(|| job_subtitle("Album", job.dto.mode, job.dto.files.len()));
+            job.plan = Some(album_plan);
+            hold_planned_job(&mut job);
+            self.jobs.insert(row_id, job);
+            members.push(row_id);
+        }
+
+        if let Some(batch) = self.batches.get_mut(&template.batch)
+            && let Some(index) = batch.jobs.iter().position(|job| *job == id)
+        {
+            batch.jobs.splice(index..=index, members.iter().copied());
+        }
+        if playlist {
+            self.playlists.insert(id, PlaylistGroup {
+                source_id: template.link.key.id,
+                title: plan.title.clone(),
+                members,
+                saved: BTreeMap::new(),
+                output: None,
+                pending: false,
+            });
+        }
+    }
+
+    fn remember_playlist_paths(&mut self, id: u64) {
+        let Some(job) = self.jobs.get(&id) else { return };
+        let Some(member) = &job.playlist else { return };
+        let Some(group) = self.playlists.get_mut(&member.group) else { return };
+        for (local, path) in &job.paths {
+            if let Some(position) = member.positions.get(*local)
+                && group.saved.get(position) != Some(path)
+            {
+                group.saved.insert(*position, path.clone());
+                group.pending = true;
+            }
+        }
+    }
+
+    fn playlist_owner(&self, group: &PlaylistGroup) -> Option<u64> {
+        group.members.iter().copied().find(|id| {
+            self.jobs.get(id).is_some_and(|job| job.dto.mode == JobMode::Audio)
+        })
+    }
+
+    fn playlist_ready(&self, group: &PlaylistGroup, running: Option<u64>) -> bool {
+        group.members.iter().all(|id| {
+            running == Some(*id) || self.jobs.get(id)
+                .is_none_or(|job| job.phase == Phase::Finished && !job.running)
+        })
+    }
+
+    fn ready_playlist_exports(&self) -> Vec<(u64, u64)> {
+        self.playlists.iter().filter_map(|(group_id, group)| {
+            if !group.pending || group.saved.is_empty() || !self.playlist_ready(group, None) {
+                return None;
+            }
+            let owner = self.playlist_owner(group)?;
+            let job = &self.jobs[&owner];
+            (job.settings.output.create_playlist || job.dto.files.iter().any(|file| file.kind == FileKind::Playlist))
+                .then_some((*group_id, owner))
+        }).collect()
+    }
+
+    fn queue_playlist_exports(&mut self) {
+        for (group_id, id) in self.ready_playlist_exports() {
+            let job = self.jobs.get_mut(&id).unwrap();
+            let file_id = playlist_file(job);
+            update_file(job, file_id, |file| file.status = Status::Queued);
+            let settings = job.settings.clone();
+            if self.retry(id, &settings, "Waiting to export the playlist.", Some(file_id)).is_ok() {
+                self.playlists.get_mut(&group_id).unwrap().pending = false;
+            }
+        }
+    }
+
+    fn remove_job_row(&mut self, id: u64) {
+        self.remember_playlist_paths(id);
+        let Some(job) = self.jobs.remove(&id) else { return };
+        let Some(member) = job.playlist else { return };
+        let Some(group) = self.playlists.get_mut(&member.group) else { return };
+        group.members.retain(|member| *member != id);
+        if group.members.is_empty() {
+            self.playlists.remove(&member.group);
+            return;
+        }
+        if let Some(mut file) = job.dto.files.into_iter().find(|file| file.kind == FileKind::Playlist) {
+            let members = group.members.clone();
+            group.pending |= matches!(file.status, Status::Queued | Status::Cancelled | Status::Downloading | Status::Retrying);
+            if let Some(owner) = members.into_iter().filter_map(|id| self.jobs.get(&id))
+                .find(|job| job.dto.mode == JobMode::Audio).map(|job| job.dto.id)
+            {
+                let job = self.jobs.get_mut(&owner).unwrap();
+                file.id = next_file(job);
+                file.generation = job.generation;
+                job.extras.insert(file.id, Extra::Playlist);
+                job.dto.files.push(file);
+            }
+        }
+    }
+
     pub fn retry(
         &mut self,
         id: u64,
@@ -688,10 +870,7 @@ impl Queue {
         selected_file: Option<u64>,
     ) -> Result<()> {
         let job = self.jobs.get_mut(&id).ok_or_else(missing_job)?;
-        if selected_file.is_none()
-            && matches!(job.phase, Phase::Active | Phase::Eligible)
-            && job.dto.drive_blocked
-        {
+        if selected_file.is_none() && job.can_retry_drive() {
             job.drive_retry
                 .extend(job.blocked_destination.iter().cloned());
             job.drive_retry
@@ -713,12 +892,15 @@ impl Queue {
                     "This item has no independent retry action.",
                 ));
             }
-        } else if job.dto.status == Status::Completed {
+        } else if job.dto.status == Status::Completed && !job.has_unfinished_files() {
             return Err(AppError::invalid(
                 "queue",
                 "Use Download again to start a fresh attempt.",
             ));
         }
+        job.playlist_only_status = selected_file
+            .filter(|id| matches!(job.extras.get(id), Some(Extra::Playlist)) && job.playlist.is_some())
+            .map(|_| (job.dto.status, job.dto.reason.clone()));
         self.next_batch += 1;
         job.batch = self.next_batch;
         job.generation += 1;
@@ -736,10 +918,7 @@ impl Queue {
         job.dto.reason = Some(reason.into());
         for file in &mut job.dto.files {
             file.replacement_token = None;
-            let selected = selected_file.map_or(
-                !matches!(file.status, Status::Completed | Status::Unavailable),
-                |id| id == file.id,
-            );
+            let selected = selected_file.map_or_else(|| retryable_file(file), |id| id == file.id);
             if selected {
                 file.status = Status::Queued;
                 file.phase = FilePhase::Queued;
@@ -779,7 +958,7 @@ impl Queue {
         Ok(())
     }
 
-    pub fn release_folder_evidence(&self, job_id: u64) -> Result<Vec<(PathBuf, PathBuf)>> {
+    pub fn release_folder_evidence(&self, job_id: u64) -> Result<Vec<crate::release_folder::Evidence>> {
         // Lexical only: filesystem canonicalization remains outside the queue lock.
         fn recorded_contains(path: &std::path::Path, root: &std::path::Path) -> bool {
             #[cfg(windows)]
@@ -817,57 +996,33 @@ impl Queue {
         }
 
         let job = self.jobs.get(&job_id).ok_or_else(missing_job)?;
-        if job.phase != Phase::Finished
-            || job.running
-            || !matches!(job.dto.status, Status::Completed | Status::Incomplete)
-        {
-            return Err(AppError::invalid(
-                "queue",
-                "This release is not completed or incomplete.",
-            ));
-        }
-        job.dto
+        Ok(job.dto
             .files
             .iter()
-            .filter(|file| file.status == Status::Completed)
-            .filter(|file| match job.extras.get(&file.id) {
-                Some(Extra::Artwork {
-                    track, directory, ..
-                }) => job
-                    .plan
-                    .as_ref()
-                    .and_then(|plan| job.pinned.get(&plan.tracks[*track].album_id))
-                    .is_none_or(|layout| {
-                        *directory == layout.album_root
-                            || layout.disc_dirs.values().any(|disc| disc == directory)
-                    }),
-                _ => true,
+            .filter(|file| {
+                file.kind == job.dto.mode.primary_file() && file.status == Status::Completed
             })
-            .map(|file| {
-                let path = file.path.clone().ok_or_else(|| {
-                    AppError::invalid("queue", "A saved output has no recorded location.")
-                })?;
+            .filter_map(|file| {
+                let path = file.path.as_ref()?;
                 let root = job
                     .asset_roots
                     .get(&file.id)
-                    .cloned()
+                    .or_else(|| {
+                        let index = usize::try_from(file.id.checked_sub(1)?).ok()?;
+                        let track = job.plan.as_ref()?.tracks.get(index)?;
+                        job.pinned.get(&track.album_id).map(|layout| &layout.album_root)
+                    })
                     .or_else(|| {
                         let roots = job
                             .pinned
                             .values()
-                            .filter(|layout| recorded_contains(&path, &layout.album_root))
+                            .filter(|layout| recorded_contains(path, &layout.album_root))
                             .collect::<Vec<_>>();
-                        (roots.len() == 1).then(|| roots[0].album_root.clone())
-                    })
-                    .ok_or_else(|| {
-                        AppError::invalid(
-                            "queue",
-                            "No unambiguous saved release folder is recorded.",
-                        )
+                        (roots.len() == 1).then(|| &roots[0].album_root)
                     })?;
-                Ok((path, root))
+                Some(crate::release_folder::Evidence { path: path.clone(), root: root.clone() })
             })
-            .collect()
+            .collect())
     }
 
     pub fn conflict_path(&self, job_id: u64, file_id: u64) -> Result<PathBuf> {
@@ -883,7 +1038,17 @@ impl Queue {
         if job.phase != Phase::Finished || job.running {
             return Err(AppError::invalid("queue", "This job has not finished."));
         }
-        self.enqueue(vec![job.link.clone()], settings, reason);
+        let album_plan = job.album_row.then(|| job.plan.clone()).flatten();
+        self.insert(vec![job.link.clone()], settings, reason, None);
+        if let Some(plan) = album_plan {
+            let job = self.jobs.get_mut(&self.next_id).unwrap();
+            job.album_row = true;
+            job.dto.title.clone_from(&plan.title);
+            plan_file_rows(job, &plan);
+            job.dto.subtitle = job_subtitle("Album", job.dto.mode, job.dto.files.len());
+            job.plan = Some(plan);
+        }
+        self.changed();
         Ok(())
     }
 
@@ -895,7 +1060,7 @@ impl Queue {
         let batch = job.batch;
         cancel(job);
         if remove {
-            self.jobs.remove(&id);
+            self.remove_job_row(id);
         }
         self.reconsider(batch);
         self.changed();
@@ -905,14 +1070,13 @@ impl Queue {
     pub fn clear_downloads(&mut self) -> ClearReport {
         let before = self.jobs.len();
         let mut affected = BTreeSet::new();
-        self.jobs.retain(|_, job| {
-            if job.phase == Phase::Active {
-                return true;
-            }
-            job.cancel.cancel();
-            affected.insert(job.batch);
-            false
-        });
+        let removed: Vec<_> = self.jobs.values().filter(|job| job.phase != Phase::Active)
+            .map(|job| (job.dto.id, job.batch)).collect();
+        for (id, batch) in removed {
+            self.jobs[&id].cancel.cancel();
+            affected.insert(batch);
+            self.remove_job_row(id);
+        }
         self.batches.retain(|id, batch| {
             if affected.contains(id) {
                 batch.confirmation = None;
@@ -937,6 +1101,7 @@ impl Queue {
 
     pub fn pending(&self) -> bool {
         !self.admitted.is_empty()
+            || !self.ready_playlist_exports().is_empty()
             || self
                 .jobs
                 .values()
@@ -970,7 +1135,7 @@ impl Queue {
                     job.phase = Phase::Waiting;
                     job.dto.status = Status::Queued;
                     job.dto.reason = Some(reason.into());
-                    if !job.retrying {
+                    if !job.retrying && !job.album_row {
                         job.plan = None;
                         job.dto.files.clear();
                         job.extras.clear();
@@ -1000,19 +1165,26 @@ impl Queue {
                 job.quality_override = None;
                 if !job.retrying
                     && (JobMode::from_settings(&next) != job.dto.mode
-                        || next.output.limited_to_album_releases
+                        || (!job.album_row && (next.output.limited_to_album_releases
                             != job.settings.output.limited_to_album_releases
-                        || next.output.smart_discography != job.settings.output.smart_discography)
+                            || next.output.smart_discography != job.settings.output.smart_discography)))
                 {
                     changed_batches.insert(job.batch);
                     job.cancel.cancel();
                     job.cancel = CancellationToken::new();
                     job.generation += 1;
                     job.running = false;
-                    job.plan = None;
                     job.extras.clear();
                     job.dto.files.clear();
                     job.dto.mode = JobMode::from_settings(&next);
+                    if job.album_row {
+                        job.settings = next.clone();
+                        if let Some(plan) = job.plan.clone() {
+                            plan_file_rows(job, &plan);
+                        }
+                    } else {
+                        job.plan = None;
+                    }
                     job.phase = Phase::Waiting;
                     job.dto.status = Status::Queued;
                     job.dto.reason = Some("Waiting to refresh the submission plan.".into());
@@ -1154,8 +1326,8 @@ impl Queue {
 fn cancel(job: &mut Job) {
     job.cancel.cancel();
     job.phase = Phase::Finished;
-    job.dto.status = Status::Cancelled;
-    job.dto.reason = Some("Cancelled.".into());
+    (job.dto.status, job.dto.reason) = job.playlist_only_status.take()
+        .unwrap_or((Status::Cancelled, Some("Cancelled.".into())));
     for file in &mut job.dto.files {
         if matches!(
             file.status,
@@ -1173,10 +1345,17 @@ fn compatible_settings(job: &Job, current: &Settings) -> Settings {
     next.output.booklet_only = job.dto.mode == JobMode::Booklet;
     next.output.limited_to_album_releases = job.settings.output.limited_to_album_releases;
     next.output.smart_discography = job.settings.output.smart_discography;
+    next.output.lyrics_mode = job.settings.output.lyrics_mode;
+    next.output.download_cover_art = job.settings.output.download_cover_art;
+    next.output.create_playlist = job.settings.output.create_playlist;
     if let Some(quality) = job.quality_override {
         next.output.quality = quality;
     }
     next
+}
+
+fn retryable_file(file: &FileDto) -> bool {
+    !matches!(file.status, Status::Completed | Status::Unavailable)
 }
 
 fn missing_job() -> AppError {
@@ -1347,6 +1526,7 @@ fn schedule(app: &Arc<App>) {
     {
         return;
     }
+    queue.queue_playlist_exports();
     let head = queue.admission_head();
     if queue
         .last_start
@@ -1361,11 +1541,11 @@ fn schedule(app: &Arc<App>) {
         .filter_map(|job| job.plan.as_ref())
         .flat_map(|plan| plan.tracks.iter().map(|track| track.album_id.clone()))
         .collect();
-    for job in queue
-        .jobs
-        .values_mut()
+    let candidates: Vec<_> = queue.ordered_jobs().into_iter()
         .filter(|job| job.phase == Phase::Eligible && (!sequential || head == Some(job.dto.id)))
-    {
+        .map(|job| job.dto.id).collect();
+    for id in candidates {
+        let job = queue.jobs.get_mut(&id).unwrap();
         if job.search_coverage.is_some() && active_releases.contains(&job.link.key.id) {
             let reason = "Waiting for an overlapping transfer to finish.";
             changed |= job.dto.reason.as_deref() != Some(reason);
@@ -1623,6 +1803,11 @@ async fn resolve_batch(
                     for track in plan.tracks.iter().take(10) {
                         app.media.observe_track_metadata(track);
                     }
+                    if matches!(job.link.key.kind, ResourceKind::Artist | ResourceKind::Label | ResourceKind::Playlist) {
+                        queue.install_album_rows(task.id, &plan);
+                        queue.changed();
+                        continue;
+                    }
                     job.dto.title = plan.title.clone();
                     job.dto.thumbnail = plan.thumbnail.clone();
                     let label = match job.link.key.kind {
@@ -1632,48 +1817,11 @@ async fn resolve_batch(
                         ResourceKind::Artist => "Artist",
                         ResourceKind::Label => "Label",
                     };
-                    job.dto.subtitle = format!(
-                        "{label} · {} {}",
-                        plan.tracks.len(),
-                        if plan.tracks.len() == 1 {
-                            "track"
-                        } else {
-                            "tracks"
-                        }
-                    );
-                    match job.dto.mode {
-                        JobMode::Audio => {
-                            job.dto.files = plan
-                                .tracks
-                                .iter()
-                                .enumerate()
-                                .map(|(index, track)| {
-                                    item(
-                                        index as u64 + 1,
-                                        FileKind::Audio,
-                                        track.title.clone(),
-                                        track,
-                                        Some(track.disc),
-                                    )
-                                })
-                                .collect();
-                        }
-                        JobMode::Booklet => {
-                            plan_booklet_rows(job, &plan);
-                            job.dto.subtitle = format!("{label} · {} PDFs", job.dto.files.len());
-                        }
-                    }
+                    plan_file_rows(job, &plan);
+                    job.dto.subtitle = job_subtitle(label, job.dto.mode, job.dto.files.len());
                     job.plan = Some(plan.clone());
                 }
-                job.phase = Phase::Held;
-                job.dto.status = Status::Queued;
-                job.dto.reason = Some("Waiting for the submission plan.".into());
-                if job.dto.mode == JobMode::Booklet && job.dto.files.is_empty() {
-                    job.phase = Phase::Finished;
-                    job.dto.status = Status::Failed;
-                    job.dto.reason =
-                        Some("Qobuz returned no downloadable booklets for this resource.".into());
-                }
+                hold_planned_job(job);
             }
             Some(Err(error)) => {
                 job.phase = Phase::Finished;
@@ -1692,6 +1840,37 @@ async fn resolve_batch(
     queue.reconsider(batch_id);
     queue.apply_search_coverage();
     queue.changed();
+}
+
+fn plan_file_rows(job: &mut Job, plan: &ResolvedResource) {
+    match job.dto.mode {
+        JobMode::Audio => {
+            job.dto.files = plan.tracks.iter().enumerate().map(|(index, track)| {
+                item(index as u64 + 1, FileKind::Audio, track.title.clone(), track, Some(track.disc))
+            }).collect();
+        }
+        JobMode::Booklet => plan_booklet_rows(job, plan),
+    }
+}
+
+fn job_subtitle(label: &str, mode: JobMode, count: usize) -> String {
+    let unit = match mode {
+        JobMode::Audio if count == 1 => "track",
+        JobMode::Audio => "tracks",
+        JobMode::Booklet => "PDFs",
+    };
+    format!("{label} · {count} {unit}")
+}
+
+fn hold_planned_job(job: &mut Job) {
+    job.phase = Phase::Held;
+    job.dto.status = Status::Queued;
+    job.dto.reason = Some("Waiting for the submission plan.".into());
+    if job.dto.mode == JobMode::Booklet && job.dto.files.is_empty() {
+        job.phase = Phase::Finished;
+        job.dto.status = Status::Failed;
+        job.dto.reason = Some("Qobuz returned no downloadable booklets for this resource.".into());
+    }
 }
 
 fn item(
@@ -1932,6 +2111,7 @@ async fn run_job(app: Arc<App>, account: Credentials, task: RunTask) {
             run_release(&app, &task, &account, album, tracks)
         })
         .await;
+    app.state().queue.remember_playlist_paths(task.id);
     write_playlist(&app, &task).await;
     if task.cancel.is_cancelled() {
         app.media.discard_retained_jobs(&[task.id]).await;
@@ -1948,12 +2128,20 @@ async fn run_job(app: Arc<App>, account: Credentials, task: RunTask) {
         job.active_drive_blocks.clear();
         job.dto.drive_blocked = false;
         if task.cancel.is_cancelled() {
-            cancel(job);
+            if job.phase != Phase::Finished {
+                cancel(job);
+            }
             queue.reset_idle_pause(app.qobuz.recovery());
             queue.changed();
             return;
         }
         job.phase = Phase::Finished;
+        if let Some(result) = job.playlist_only_status.take() {
+            (job.dto.status, job.dto.reason) = result;
+            queue.reset_idle_pause(app.qobuz.recovery());
+            queue.changed();
+            return;
+        }
         let primary = job
             .dto
             .files
@@ -2878,65 +3066,100 @@ fn refresh_cover_warnings(job: &mut Job, plan: &ResolvedResource, album: &str) {
     }
 }
 
+fn should_write_playlist(job: &Job, task: &RunTask) -> bool {
+    let pending_export = job.dto.files.iter().any(|file| {
+        file.kind == FileKind::Playlist && file.status == Status::Queued
+            && task.only_file.is_none_or(|id| id == file.id)
+    });
+    if job.playlist.is_some() {
+        return pending_export;
+    }
+    job.link.key.kind == ResourceKind::Playlist
+        && !job.paths.is_empty()
+        && (pending_export || task.settings.output.create_playlist
+            && task.audio.iter().any(|index| job.paths.contains_key(index)))
+}
+
+fn playlist_file(job: &mut Job) -> u64 {
+    if let Some(file) = job.dto.files.iter().find(|file| file.kind == FileKind::Playlist) {
+        return file.id;
+    }
+    let id = next_file(job);
+    let mut file = item(id, FileKind::Playlist, "Playlist export".into(), &job.plan.as_ref().unwrap().tracks[0], None);
+    file.independent_retry = true;
+    job.dto.files.push(file);
+    job.extras.insert(id, Extra::Playlist);
+    id
+}
+
+struct PlaylistInput {
+    title: String,
+    source_id: String,
+    recorded: Option<PathBuf>,
+    paths: Vec<PathBuf>,
+    group: Option<u64>,
+}
+
+fn playlist_input(queue: &mut Queue, task: &RunTask) -> Option<PlaylistInput> {
+    let job = queue.jobs.get(&task.id).filter(|job| job.generation == task.generation)?;
+    if task.cancel.is_cancelled() || !should_write_playlist(job, task) {
+        return None;
+    }
+    let Some(member) = &job.playlist else {
+        return Some(PlaylistInput {
+            title: task.plan.title.clone(),
+            source_id: job.link.key.id.clone(),
+            recorded: job.playlist_path.clone(),
+            paths: job.paths.values().cloned().collect(),
+            group: None,
+        });
+    };
+    let group = queue.playlists.get(&member.group)?;
+    let ready = queue.playlist_owner(group) == Some(task.id) && queue.playlist_ready(group, Some(task.id));
+    let group_id = member.group;
+    let group = queue.playlists.get_mut(&group_id)?;
+    if !ready {
+        group.pending = true;
+        return None;
+    }
+    group.pending = false;
+    Some(PlaylistInput {
+        title: group.title.clone(),
+        source_id: group.source_id.clone(),
+        recorded: group.output.clone(),
+        paths: group.saved.values().cloned().collect(),
+        group: Some(group_id),
+    })
+}
+
 async fn write_playlist(app: &Arc<App>, task: &RunTask) {
     if task.cancel.is_cancelled() || task.settings.output.booklet_only {
         return;
     }
-    let prepare = |job: &Job| {
-        let selected_playlist = task
-            .only_file
-            .filter(|id| matches!(job.extras.get(id), Some(Extra::Playlist)));
-        job.link.key.kind == ResourceKind::Playlist
-            && !job.paths.is_empty()
-            && (selected_playlist.is_some()
-                || task.settings.output.create_playlist
-                    && task.audio.iter().any(|index| job.paths.contains_key(index)))
-    };
-    let needed = app.state().queue.jobs.get(&task.id).is_some_and(prepare);
-    if !needed {
+    let input = playlist_input(&mut app.state().queue, task);
+    let Some(input) = input else {
         update_job(app, task, |job| job.playlist_reserved = false);
         return;
-    }
+    };
     let gate = transfer_context(app, task, 0);
     if !gate.wait_for_media(&task.cancel).await {
         return;
     }
     let request = update_job(app, task, |job| {
-        let existing = job
-            .extras
-            .iter()
-            .find_map(|(id, extra)| matches!(extra, Extra::Playlist).then_some(*id));
-        let file_id = existing.unwrap_or_else(|| {
-            let id = next_file(job);
-            job.dto.files.push(item(
-                id,
-                FileKind::Playlist,
-                "Playlist export".into(),
-                &task.plan.tracks[0],
-                None,
-            ));
-            job.extras.insert(id, Extra::Playlist);
-            id
-        });
+        let file_id = playlist_file(job);
         job.playlist_reserved = false;
         update_file(job, file_id, |file| {
             file.status = Status::Downloading;
             file.phase = FilePhase::Processing;
             file.reason = None;
         });
-        Some((
-            file_id,
-            job.link.key.id.clone(),
-            job.playlist_path.clone(),
-            job.paths.values().cloned().collect::<Vec<_>>(),
-        ))
-    })
-    .flatten();
-    let Some((file_id, playlist_id, recorded, paths)) = request else {
+        file_id
+    });
+    let Some(file_id) = request else {
         return;
     };
     let transfer = transfer_context(app, task, file_id);
-    let destination = recorded
+    let destination = input.recorded
         .as_deref()
         .and_then(Path::parent)
         .unwrap_or(&task.root);
@@ -2946,11 +3169,11 @@ async fn write_playlist(app: &Arc<App>, task: &RunTask) {
             .await?;
         app.media
             .write_playlist(
-                &task.plan.title,
-                &playlist_id,
+                &input.title,
+                &input.source_id,
                 &task.root,
-                recorded.as_deref(),
-                &paths,
+                input.recorded.as_deref(),
+                &input.paths,
                 task.settings.output.safe_mode,
                 &task.cancel,
             )
@@ -2961,6 +3184,11 @@ async fn write_playlist(app: &Arc<App>, task: &RunTask) {
         Ok(path) => final_size(path).await,
         Err(_) => None,
     };
+    if let (Some(group_id), Ok(path)) = (input.group, &result)
+        && let Some(group) = app.state().queue.playlists.get_mut(&group_id)
+    {
+        group.output = Some(path.clone());
+    }
     update_job(app, task, |job| match result {
         Ok(path) => {
             job.playlist_path = Some(path.clone());
@@ -3214,10 +3442,10 @@ mod tests {
             && file.path.as_ref() == Some(&cover_path)));
         job.phase = Phase::Finished;
         job.dto.status = Status::Incomplete;
-        assert_eq!(
-            queue.release_folder_evidence(1).unwrap(),
-            [(audio, release_root)]
-        );
+        let evidence = queue.release_folder_evidence(1).unwrap();
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].path, audio);
+        assert_eq!(evidence[0].root, release_root);
     }
 
     #[test]
@@ -3248,7 +3476,7 @@ mod tests {
     #[test]
     fn release_folder_uses_saved_layouts_and_rejects_stale_or_unknown_jobs() {
         let mut queue = active_queue();
-        assert!(queue.release_folder_evidence(1).is_err());
+        assert!(queue.release_folder_evidence(1).unwrap().is_empty());
         assert!(queue.release_folder_evidence(999).is_err());
         let job = queue.jobs.get_mut(&1).unwrap();
         job.phase = Phase::Finished;
@@ -3256,7 +3484,7 @@ mod tests {
         job.dto.status = Status::Completed;
         job.dto.files[0].status = Status::Completed;
         job.dto.files[0].path = Some(PathBuf::from("C:/saved/album/Disc 1/track.flac"));
-        assert!(queue.release_folder_evidence(1).is_err());
+        assert!(queue.release_folder_evidence(1).unwrap().is_empty());
         let job = queue.jobs.get_mut(&1).unwrap();
         job.pinned.insert(
             "album".into(),
@@ -3268,13 +3496,48 @@ mod tests {
         );
         job.settings.output_location = None;
         assert_eq!(
-            queue.release_folder_evidence(1).unwrap()[0].1,
+            queue.release_folder_evidence(1).unwrap()[0].root,
             PathBuf::from("C:/saved/album")
         );
         queue.jobs.get_mut(&1).unwrap().dto.status = Status::Incomplete;
         assert!(queue.release_folder_evidence(1).is_ok());
-        queue.jobs.get_mut(&1).unwrap().dto.status = Status::Failed;
-        assert!(queue.release_folder_evidence(1).is_err());
+        queue.jobs.get_mut(&1).unwrap().dto.files[0].status = Status::Failed;
+        assert!(queue.release_folder_evidence(1).unwrap().is_empty());
+    }
+
+    #[test]
+    fn simultaneous_downloads_find_their_own_folder_after_the_first_save() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut queue = active_queue();
+        queue.enqueue(
+            vec![normalize_link("https://qobuz.com/album/2").unwrap()],
+            &Settings::default(),
+            "Waiting",
+        );
+        for (id, title) in [(1, "First"), (2, "Second")] {
+            assert!(queue.release_folder_evidence(id).unwrap().is_empty());
+            let root = temp.path().join(title);
+            std::fs::create_dir_all(root.join("Disc 1")).unwrap();
+            let path = root.join("Disc 1/track.flac");
+            std::fs::write(&path, b"first saved track").unwrap();
+            let job = queue.jobs.get_mut(&id).unwrap();
+            job.phase = Phase::Active;
+            job.running = true;
+            job.dto.status = Status::Downloading;
+            let track = track("1", title, 1, 1);
+            let mut saved = item(1, FileKind::Audio, "Track".into(), &track, Some(1));
+            complete(&mut saved, path, None, None);
+            job.dto.files = vec![saved, item(2, FileKind::Audio, "Pending".into(), &track, Some(1))];
+            job.pinned.insert(title.into(), ReleaseLayout {
+                album_root: root,
+                cover_dir: None,
+                disc_dirs: BTreeMap::new(),
+            });
+        }
+        for (id, title) in [(1, "First"), (2, "Second")] {
+            let chosen = crate::release_folder::select(queue.release_folder_evidence(id).unwrap()).unwrap();
+            assert_eq!(chosen.path, dunce::canonicalize(temp.path().join(title)).unwrap());
+        }
     }
 
     #[test]
@@ -3328,13 +3591,13 @@ mod tests {
             .release_folder_evidence(1)
             .expect("canonical saved output must match planned ordinary root");
         assert_eq!(
-            crate::release_folder::resolve(evidence).unwrap(),
+            crate::release_folder::select(evidence).unwrap().path,
             dunce::canonicalize(&root).unwrap()
         );
         q.jobs.get_mut(&1).unwrap().dto.status = Status::Incomplete;
         assert!(q.release_folder_evidence(1).is_ok());
-        std::fs::remove_file(root.join("cover.jpg")).unwrap();
-        assert!(crate::release_folder::resolve(q.release_folder_evidence(1).unwrap()).is_err());
+        std::fs::remove_file(root.join("Disc 1/track.flac")).unwrap();
+        assert!(crate::release_folder::select(q.release_folder_evidence(1).unwrap()).is_err());
     }
 
     #[cfg(windows)]
@@ -3382,7 +3645,7 @@ mod tests {
                     disc_dirs: BTreeMap::new(),
                 },
             );
-            assert_eq!(q.release_folder_evidence(1).is_ok(), ok, "{file} / {root}");
+            assert_eq!(!q.release_folder_evidence(1).unwrap().is_empty(), ok, "{file} / {root}");
         }
     }
 
@@ -3410,7 +3673,7 @@ mod tests {
                 disc_dirs: BTreeMap::new(),
             },
         );
-        let folder = crate::release_folder::resolve(q.release_folder_evidence(1).unwrap()).unwrap();
+        let folder = crate::release_folder::select(q.release_folder_evidence(1).unwrap()).unwrap().path;
         assert_eq!(folder, dunce::canonicalize(root).unwrap());
         crate::release_folder::open(&folder).unwrap();
     }
@@ -3524,6 +3787,48 @@ mod tests {
         assert_eq!(job.settings.output.quality, 2);
         assert_eq!(job.settings.max_connections.limit(), 2);
         assert!(Arc::ptr_eq(job.plan.as_ref().unwrap(), &plan));
+    }
+
+    #[test]
+    fn completed_audio_can_retry_all_unfinished_outputs_in_one_attempt() {
+        let mut queue = active_queue();
+        let job = queue.jobs.get_mut(&1).unwrap();
+        job.settings.output.lyrics_mode = LyricsMode::External;
+        job.settings.output.download_cover_art = true;
+        job.settings.output.create_playlist = true;
+        complete(&mut job.dto.files[0], "saved.flac".into(), None, Some(20));
+        let track = track("1", "album", 1, 1);
+        let kinds = [FileKind::Lyrics, FileKind::Lyrics, FileKind::Artwork, FileKind::Booklet, FileKind::Playlist];
+        for (index, kind) in kinds.into_iter().enumerate() {
+            let mut row = item(index as u64 + 2, kind, "Pending output".into(), &track, None);
+            fail(&mut row, "Timed out".into());
+            job.dto.files.push(row);
+        }
+        let mut unavailable = item(7, FileKind::Lyrics, "No lyrics".into(), &track, None);
+        lyric_failure(&mut unavailable, None);
+        job.dto.files.push(unavailable);
+        let mut current = Settings::default();
+        current.output.lyrics_mode = LyricsMode::Off;
+        current.output.download_cover_art = false;
+        current.output.create_playlist = false;
+        assert!(!queue.snapshot().jobs[0].can_retry);
+        assert!(queue.retry(1, &current, "Retry", None).is_err());
+
+        let job = queue.jobs.get_mut(&1).unwrap();
+        job.running = false;
+        job.phase = Phase::Finished;
+        job.dto.status = Status::Completed;
+        assert!(queue.snapshot().jobs[0].can_retry);
+        queue.retry(1, &current, "Retry", None).unwrap();
+        let job = &queue.jobs[&1];
+        assert!(job.settings.output.lyrics_mode == LyricsMode::External);
+        assert!(job.settings.output.download_cover_art);
+        assert!(job.settings.output.create_playlist);
+        assert!(job.dto.files[0].status == Status::Completed);
+        assert_eq!(job.dto.files[0].path.as_deref(), Some(Path::new("saved.flac")));
+        assert_eq!(job.dto.files[0].generation, 0);
+        assert!(job.dto.files[6].status == Status::Unavailable);
+        assert!(job.dto.files[1..6].iter().all(|row| row.status == Status::Queued && row.generation == job.generation));
     }
 
     #[test]
@@ -3697,6 +4002,99 @@ mod tests {
             thumbnail: None,
         };
         assert_eq!(release_groups(&plan), [("z", vec![0, 2]), ("a", vec![1])]);
+    }
+
+    #[test]
+    fn artist_resolution_creates_independent_album_rows_in_queue_order() {
+        let settings = Settings::default();
+        let mut queue = Queue::default();
+        queue.enqueue(vec![
+            normalize_link("https://play.qobuz.com/artist/123").unwrap(),
+            normalize_link("https://play.qobuz.com/album/unrelated").unwrap(),
+        ], &settings, "Waiting");
+        let plan = ResolvedResource {
+            title: "Artist".into(),
+            tracks: vec![track("1", "first", 1, 1), track("2", "second", 1, 1), track("3", "first", 2, 1)],
+            thumbnail_url: None,
+            thumbnail: None,
+        };
+        queue.install_album_rows(1, &plan);
+        assert_eq!(queue.snapshot().jobs.iter().map(|job| job.id).collect::<Vec<_>>(), [1, 3, 2]);
+        assert_eq!(queue.jobs[&1].link.key.id, "first");
+        assert_eq!(queue.jobs[&3].link.key.id, "second");
+        assert_eq!(queue.jobs[&1].dto.files.len(), 2);
+        assert_eq!(queue.jobs[&3].dto.files.len(), 1);
+        assert_eq!(queue.batches[&1].jobs, [1, 3, 2]);
+        queue.reconsider(1);
+        queue.cancel(1, false).unwrap();
+        assert_eq!(queue.admission_head(), Some(3));
+        assert!(queue.jobs[&1].dto.status == Status::Cancelled);
+        assert!(queue.jobs[&3].dto.status == Status::Queued);
+        queue.retry(1, &settings, "Retry", None).unwrap();
+        assert_eq!(queue.jobs[&1].plan.as_ref().unwrap().tracks.len(), 2);
+        assert!(matches!(queue.jobs[&3].phase, Phase::Held | Phase::Eligible));
+        queue.cancel(3, true).unwrap();
+        assert!(!queue.jobs.contains_key(&3));
+        assert!(queue.jobs.contains_key(&1));
+    }
+
+    #[test]
+    fn playlist_exports_once_from_first_remaining_album_in_original_order() {
+        let mut settings = Settings::default();
+        settings.output.create_playlist = true;
+        let mut queue = Queue::default();
+        queue.enqueue(vec![normalize_link("https://play.qobuz.com/playlist/10").unwrap()], &settings, "Waiting");
+        let plan = ResolvedResource {
+            title: "Original playlist".into(),
+            tracks: vec![track("1", "first", 1, 1), track("2", "second", 1, 1), track("1", "first", 1, 1)],
+            thumbnail_url: None,
+            thumbnail: None,
+        };
+        queue.install_album_rows(1, &plan);
+        assert_eq!(queue.jobs[&1].playlist.as_ref().unwrap().positions, [0, 2]);
+        assert_eq!(queue.jobs[&2].playlist.as_ref().unwrap().positions, [1]);
+        for (id, paths) in [(1, vec!["a.flac", "a.flac"]), (2, vec!["b.flac"])] {
+            let job = queue.jobs.get_mut(&id).unwrap();
+            for (index, path) in paths.into_iter().enumerate() {
+                job.paths.insert(index, path.into());
+                complete(&mut job.dto.files[index], path.into(), None, None);
+            }
+            job.phase = Phase::Finished;
+            job.dto.status = Status::Completed;
+            queue.remember_playlist_paths(id);
+            if id == 1 {
+                assert!(queue.ready_playlist_exports().is_empty());
+            }
+        }
+        assert_eq!(queue.ready_playlist_exports(), [(1, 1)]);
+        queue.queue_playlist_exports();
+        assert!(queue.ready_playlist_exports().is_empty());
+        assert!(!queue.jobs[&2].dto.files.iter().any(|file| file.kind == FileKind::Playlist));
+        queue.cancel(1, true).unwrap();
+        assert_eq!(queue.ready_playlist_exports(), [(1, 2)]);
+        queue.queue_playlist_exports();
+        let job = &queue.jobs[&2];
+        let task = RunTask {
+            id: 2,
+            generation: job.generation,
+            settings: job.settings.clone(),
+            root: "test-root".into(),
+            plan: job.plan.clone().unwrap(),
+            cancel: job.cancel.clone(),
+            audio: Vec::new(),
+            only_file: job.only_file,
+            account_epoch: 0,
+            search_origin: false,
+            kind: ResourceKind::Album,
+            replacement: None,
+            mode: DownloadMode::Sequential,
+        };
+        let export = playlist_input(&mut queue, &task).unwrap();
+        assert_eq!(export.title, "Original playlist");
+        assert_eq!(export.source_id, "10");
+        assert_eq!(export.paths, ["a.flac", "b.flac", "a.flac"].map(PathBuf::from));
+        assert_eq!(queue.jobs[&2].dto.files.iter().filter(|file| file.kind == FileKind::Playlist).count(), 1);
+        assert!(queue.jobs[&2].dto.files[0].status == Status::Completed);
     }
 
     #[tokio::test]

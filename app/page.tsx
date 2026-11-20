@@ -546,7 +546,7 @@ export default function App() {
                   cancel: id => run(() => desktop.cancelJob(id)),
                   remove: id => run(() => desktop.removeJob(id)),
                   retry: id => run(async () => { await flush(); await desktop.retryJob(id); }),
-                  retryFile: (id, fileId) => void run(async () => { await flush(); await desktop.retryFile(id, fileId); }),
+                  retryFile: (id, fileId) => run(async () => { await flush(); await desktop.retryFile(id, fileId); }),
                   replaceFile: (id, file) => {
                     const token = file.replacementToken;
                     if (!token || !file.conflictPath) return;
@@ -558,7 +558,7 @@ export default function App() {
                       action: async () => { await flush(); await desktop.replaceSearchAudio(id, file.id, token); },
                     });
                   },
-                  openFolder: (id, fileId) => void run(() => desktop.openContainingFolder(id, fileId)),
+                  openFolder: (id, fileId) => run(() => desktop.openContainingFolder(id, fileId)),
                   openReleaseFolder: id => run(() => desktop.openReleaseFolder(id)),
                 }} />
               </>

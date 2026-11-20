@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [1.0.10] - 2026-11-20
+
+### Changed
+
+- [win/mac] Show one row per album for artist discographies and playlists. Row actions affect that album, and a playlist still exports one M3U in the original track order, including repeats.
+- [win/mac] Show outlined Remove buttons and icon-only file actions with tooltips. Center the file controls vertically and give them 12 px of spacing.
+
+### Fixed
+
+- [win/mac] Enable Open folder as soon as the first track is saved so each downloading release opens its own folder directly.
+- [win/mac] Let release-level Retry recover failed files of any type, including timed-out lyrics, while keeping successfully saved files and the release's original file-type settings.
+
+**Validation:** Windows x64 release build and 136 Rust tests passed. Native WebView2 smoke tests and mocked browser regressions for the release and file rows passed.
+
 ## [1.0.9] - 2026-11-19
 
 ### Changed
