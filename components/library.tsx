@@ -1,6 +1,7 @@
 import { isMac } from "@/lib/platform";
+import { Tooltip } from "@base-ui/react/tooltip";
 import { Bookmark as BookmarkIcon, ChevronRight, Download, FolderOpen, Plus, RotateCw, Trash2, UserRound, X } from "lucide-react";
-import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import { desktop, type Bookmark, type BookmarkScope, type FileItem, type Job } from "@/lib/desktop";
 import { Button, interactiveTarget, Progress } from "./ui/primitives";
 import { ReleaseDetails } from "./ui/release-details";
@@ -127,38 +128,76 @@ function Files({ files, bookletOnly, canRetry, retry, openFolder, replace, pause
 }
 
 export interface JobActions {
-  retry: (id: number) => void;
+  retry: (id: number) => Promise<void>;
   retryFile: (jobId: number, fileId: number) => void;
   replaceFile: (jobId: number, file: FileItem) => void;
   openFolder: (jobId: number, fileId: number) => void;
   openReleaseFolder: (id: number) => Promise<void>;
-  cancel: (id: number) => void;
-  remove: (id: number) => void;
+  cancel: (id: number) => Promise<void>;
+  remove: (id: number) => Promise<void>;
 }
 
-function ReleaseFolderButton({ job, open }: { job: Job; open: () => Promise<void> }) {
-  const help = useId();
+const releaseActions = {
+  folder: { Icon: FolderOpen, label: "Open folder", unavailable: "Folder cannot be found" },
+  cancel: { Icon: X, label: "Cancel download", unavailable: "Cannot be cancelled" },
+  retry: { Icon: RotateCw, label: "Retry download", unavailable: "Retry cannot be done" },
+  remove: { Icon: Trash2, label: "Remove from downloads", unavailable: "Cannot be removed" },
+};
+
+type ReleaseTooltip = Tooltip.Handle<{ id: string; text: string }>;
+
+function ReleaseActionButton({ action, tooltip, available = true, onAction, recheck }: {
+  action: keyof typeof releaseActions; tooltip: ReleaseTooltip; available?: boolean;
+  onAction: () => Promise<void>; recheck?: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const { Icon, label, unavailable } = releaseActions[action];
+  const disabled = !available || pending;
+  const descriptionId = useId();
+  const description = disabled ? unavailable : label;
+  const payload = useMemo(() => ({ id: descriptionId, text: description }), [descriptionId, description]);
+
+  return (
+    <Tooltip.Trigger handle={tooltip} payload={payload}
+      render={(props, state) => <Button {...props} aria-describedby={state.open ? descriptionId : undefined} />}
+      className={action === "remove" ? "ghost with-icon" : "with-icon"}
+      aria-label={label} aria-disabled={disabled || undefined} onFocus={recheck} onPointerEnter={recheck}
+      onClick={async () => {
+        if (disabled) return;
+        setPending(true);
+        try { await onAction(); }
+        finally { setPending(false); }
+      }}>
+      <Icon className="icon" aria-hidden />
+    </Tooltip.Trigger>
+  );
+}
+
+function ReleaseFolderButton({ job, open, tooltip }: {
+  job: Job; open: () => Promise<void>; tooltip: ReleaseTooltip;
+}) {
   const [refresh, setRefresh] = useState(0);
-  const [status, setStatus] = useState({ available: false, reason: "Checking the saved release folder." as string | null });
+  const [verifiedEvidence, setVerifiedEvidence] = useState<string>();
+  const eligible = job.status === "completed" || job.status === "incomplete";
   const evidence = JSON.stringify([job.id, job.generation, job.status, job.files.map(file => [file.id, file.status, file.path])]);
+  const available = eligible && verifiedEvidence === evidence;
+  const recheck = () => setRefresh(value => value + 1);
+
   useEffect(() => {
+    if (!eligible) return;
     let active = true;
-    setStatus({ available: false, reason: "Checking the saved release folder." });
-    void desktop.releaseFolderStatus(job.id).then(result => { if (active) setStatus(result); })
-      .catch(() => { if (active) setStatus({ available: false, reason: "The saved release folder could not be checked." }); });
+    void desktop.releaseFolderStatus(job.id).then(result => {
+      if (active) setVerifiedEvidence(result.available ? evidence : undefined);
+    }).catch(() => { if (active) setVerifiedEvidence(undefined); });
     return () => { active = false; };
-  }, [evidence, refresh, job.id]);
-  return <span title={status.reason ?? undefined}>
-    <Button className="with-icon" style={!status.available ? { opacity: .45, cursor: "default" } : undefined} onFocus={() => { if (!status.available) setRefresh(value => value + 1); }} aria-disabled={!status.available} aria-describedby={!status.available ? help : undefined}
-      onClick={() => { if (status.available) void open().finally(() => setRefresh(value => value + 1)); }}>
-      <FolderOpen className="icon" aria-hidden /> Open folder
-    </Button>
-    {!status.available && <span id={help} hidden>{status.reason}</span>}
-  </span>;
+  }, [eligible, evidence, refresh, job.id]);
+
+  return <ReleaseActionButton action="folder" tooltip={tooltip} available={available}
+    recheck={eligible ? recheck : undefined} onAction={() => open().finally(recheck)} />;
 }
 
-function QueueEntry({ job, actions, open, toggle, paused }: {
-  job: Job; actions: JobActions; open: boolean; toggle: () => void; paused: boolean;
+function QueueEntry({ job, actions, open, toggle, paused, tooltip }: {
+  job: Job; actions: JobActions; open: boolean; toggle: () => void; paused: boolean; tooltip: ReleaseTooltip;
 }) {
   const details = useId();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -172,9 +211,6 @@ function QueueEntry({ job, actions, open, toggle, paused }: {
     if (open && document.getElementById(details)?.contains(document.activeElement)) trigger.current?.focus();
     toggle();
   }
-  const [command, label] = active
-    ? [actions.cancel, "Cancel"]
-    : [actions.retry, "Retry"];
   return (
     <article className={open ? "entry open" : "entry"}>
         <div className="job" onClick={event => {
@@ -199,19 +235,11 @@ function QueueEntry({ job, actions, open, toggle, paused }: {
             {files.length > 0 && ` · ${completed.length}/${files.length}${job.mode === "booklet" ? "" : " tracks"}`}
           </div>
           <div className="actions">
-            {job.driveBlocked && active && (
-              <Button className="with-icon" onClick={() => actions.retry(job.id)}>
-                <RotateCw className="icon" aria-hidden /> Retry
-              </Button>
-            )}
-            {(job.status === "completed" || job.status === "incomplete") &&
-              <ReleaseFolderButton job={job} open={() => actions.openReleaseFolder(job.id)} />}
-            {job.status !== "completed" && <Button className="with-icon" onClick={() => command(job.id)}>
-              {active ? <X className="icon" aria-hidden /> : <RotateCw className="icon" aria-hidden />} {label}
-            </Button>}
-            <Button className="ghost with-icon" onClick={() => actions.remove(job.id)}>
-              <Trash2 className="icon" aria-hidden /> Remove
-            </Button>
+            <ReleaseFolderButton job={job} tooltip={tooltip} open={() => actions.openReleaseFolder(job.id)} />
+            <ReleaseActionButton action="cancel" tooltip={tooltip} available={active} onAction={() => actions.cancel(job.id)} />
+            <ReleaseActionButton action="retry" tooltip={tooltip} available={active ? job.driveBlocked === true : job.status !== "completed"}
+              onAction={() => actions.retry(job.id)} />
+            <ReleaseActionButton action="remove" tooltip={tooltip} onAction={() => actions.remove(job.id)} />
           </div>
         </div>
         <ReleaseDetails id={details} open={open}>
@@ -225,16 +253,33 @@ function QueueEntry({ job, actions, open, toggle, paused }: {
   );
 }
 
-export function Downloads({ jobs, filter, actions, expanded, toggle, paused }: {
+export function Downloads({ jobs, filter, actions, expanded, toggle, paused, tooltipContainer }: {
   jobs: Job[]; filter: Filter; actions: JobActions; expanded: Set<number>; toggle: (id: number) => void; paused: boolean;
+  tooltipContainer: RefObject<HTMLDivElement | null>;
 }) {
+  const [tooltip] = useState<ReleaseTooltip>(() => Tooltip.createHandle());
   const shown = jobs.filter(job => matches(job, filter));
   return (
-    <section className="panel" aria-label="Download queue">
-      <div className="columns"><span>Release</span><span>Status</span><span className="qcol">Format / Files</span><span>Actions</span></div>
-      {shown.map(job => <QueueEntry key={job.id} job={job} actions={actions} open={expanded.has(job.id)} paused={paused} toggle={() => toggle(job.id)} />)}
-      {shown.length === 0 && <p className="empty">{filter === "Show all" ? "No downloads." : filter === "Complete" ? "No completed downloads." : `No ${filter.toLowerCase()} jobs.`}</p>}
-    </section>
+    <Tooltip.Provider delay={250}>
+      <section className="panel" aria-label="Download queue">
+        <div className="columns"><span>Release</span><span>Status</span><span className="qcol">Format / Files</span><span>Actions</span></div>
+        {shown.map(job => <QueueEntry key={job.id} job={job} actions={actions} open={expanded.has(job.id)} paused={paused}
+          toggle={() => toggle(job.id)} tooltip={tooltip} />)}
+        {shown.length === 0 && <p className="empty">{filter === "Show all" ? "No downloads." : filter === "Complete" ? "No completed downloads." : `No ${filter.toLowerCase()} jobs.`}</p>}
+      </section>
+      <Tooltip.Root handle={tooltip}>
+        {({ payload }) => (
+          <Tooltip.Portal className="release-tooltip-portal" container={tooltipContainer}>
+            <Tooltip.Positioner className="release-tooltip-position" side="top" sideOffset={8} collisionPadding={8} positionMethod="fixed">
+              <Tooltip.Popup className="release-tooltip" role="tooltip" id={payload?.id}>
+                {payload?.text}
+                <Tooltip.Arrow className="release-tooltip-arrow" />
+              </Tooltip.Popup>
+            </Tooltip.Positioner>
+          </Tooltip.Portal>
+        )}
+      </Tooltip.Root>
+    </Tooltip.Provider>
   );
 }
 

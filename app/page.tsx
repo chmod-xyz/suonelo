@@ -52,6 +52,7 @@ export default function App() {
   const [metadata, setMetadata] = useState<MetadataField[]>([]);
   const [systemMode, setSystemMode] = useState<"light" | "dark">("light");
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const appRoot = useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchLauncher = useRef<HTMLButtonElement>(null);
   const [deciding, setDeciding] = useState<string[]>([]);
@@ -436,7 +437,7 @@ export default function App() {
     : view === "Bookmarks" ? "Saved releases and links" : saveStatus;
 
   return (
-    <div id="app" data-mode={effectiveMode} data-theme={effectiveTheme} data-loading={!ready || undefined}>
+    <div ref={appRoot} id="app" data-mode={effectiveMode} data-theme={effectiveTheme} data-loading={!ready || undefined}>
       <header className="top">
         <div className="brand"><SuoneloLogo /></div>
         {ready && <button ref={searchLauncher} type="button" className="search-launcher" aria-haspopup="dialog" aria-keyshortcuts={isMac ? "Meta+F" : "Control+F"}
@@ -541,10 +542,10 @@ export default function App() {
                     Connection recovery limits the app to {queue.recovery.workerCap} active {queue.recovery.workerCap === 1 ? "operation" : "operations"}.
                   </p>
                 ) : null}
-                <Downloads jobs={queue.jobs} paused={queue.paused} filter={filter} expanded={expanded} toggle={id => toggle(setExpanded, id)} actions={{
-                  cancel: id => void run(() => desktop.cancelJob(id)),
-                  remove: id => void run(() => desktop.removeJob(id)),
-                  retry: id => void run(async () => { await flush(); await desktop.retryJob(id); }),
+                <Downloads jobs={queue.jobs} paused={queue.paused} filter={filter} expanded={expanded} toggle={id => toggle(setExpanded, id)} tooltipContainer={appRoot} actions={{
+                  cancel: id => run(() => desktop.cancelJob(id)),
+                  remove: id => run(() => desktop.removeJob(id)),
+                  retry: id => run(async () => { await flush(); await desktop.retryJob(id); }),
                   retryFile: (id, fileId) => void run(async () => { await flush(); await desktop.retryFile(id, fileId); }),
                   replaceFile: (id, file) => {
                     const token = file.replacementToken;

@@ -85,7 +85,7 @@ button,input,select,textarea {
 button {
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 7px 11px;
   cursor: pointer;
   white-space: nowrap;
@@ -153,7 +153,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--accent);
   color: var(--on);
   font-size: 17px;
@@ -198,6 +198,7 @@ aside button {
   text-align: left;
   background: transparent;
   border-color: transparent;
+  border-radius: 12px;
 }
 
 aside button[aria-current=true] {
@@ -392,12 +393,60 @@ h2 {
 }
 
 .job .actions {
+  gap: 8px;
   justify-content: flex-end;
 }
 
-.job .actions button {
-  padding: 5px 8px;
+.job .actions .with-icon {
+  min-height: 36px;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.job .actions button[aria-disabled=true] {
+  opacity: .45;
+  cursor: default;
+}
+
+.release-tooltip-portal {
+  display: contents;
+}
+
+.release-tooltip-position {
+  z-index: 12;
+}
+
+.release-tooltip-position[data-anchor-hidden] {
+  visibility: hidden;
+}
+
+.release-tooltip {
+  --tooltip-bg: color-mix(in oklab, var(--ink) 85%, var(--accent));
+  max-width: min(240px, var(--available-width));
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--tooltip-bg);
+  color: var(--bg);
   font-size: 12px;
+  line-height: 18px;
+}
+
+.release-tooltip-arrow {
+  width: 10px;
+  height: 5px;
+  background: var(--tooltip-bg);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.release-tooltip-arrow[data-side=top] {
+  top: calc(100% - 1px);
+}
+
+.release-tooltip-arrow[data-side=bottom] {
+  bottom: calc(100% - 1px);
+  rotate: 180deg;
 }
 
 .details {
@@ -510,7 +559,7 @@ input:not([type=checkbox]),select,textarea {
   border: 1px solid var(--input-line);
   background: var(--bg);
   padding: 8px 10px;
-  border-radius: 7px;
+  border-radius: 8px;
   font-weight: 400;
 }
 
@@ -554,7 +603,7 @@ input[type=checkbox] {
   padding: 11px;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 8px;
   overflow-wrap: anywhere;
   white-space: break-spaces;
   font-size: 12px;
@@ -707,7 +756,7 @@ textarea {
 
 @media (max-width:950px) {
   .columns,.job {
-    grid-template-columns: minmax(0,1fr) minmax(90px,.43fr) 154px;
+    grid-template-columns: minmax(0,1fr) minmax(90px,.43fr) 184px;
     gap: 8px;
   }
 
@@ -778,6 +827,7 @@ button.with-icon,.chipbox button,.topright button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 40px;
   gap: 6px;
 }
 
@@ -812,7 +862,7 @@ aside button[aria-current=true]:is(:hover,:focus-visible) {
   height: 15px;
 }
 
-.job .actions .icon,.bookmark button .icon {
+.bookmark button .icon {
   width: 14px;
   height: 14px;
 }
@@ -861,7 +911,7 @@ aside button[aria-current=true]:is(:hover,:focus-visible) {
 
 .chipbox button {
   padding: 6px 9px;
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--surface);
   box-shadow: 0 1px 2px #0001;
   font-weight: 500;
@@ -1381,7 +1431,7 @@ dialog {
 @keyframes import-spin { to { transform: rotate(360deg); } }
 .import-attached { padding: 14px; }
 .attachment-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
-.attachment-file { display: grid; place-items: center; width: 40px; height: 44px; flex: none; border: 1px solid var(--line); border-radius: 7px; color: var(--highlight); background: var(--surface); }
+.attachment-file { display: grid; place-items: center; width: 40px; height: 44px; flex: none; border: 1px solid var(--line); border-radius: 8px; color: var(--highlight); background: var(--surface); }
 .attachment-file .icon { width: 22px; height: 22px; }
 .attachment-copy { display: grid; gap: 5px; min-width: 0; flex: 1; }
 .attachment-name { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
@@ -1488,7 +1538,7 @@ dialog {
 .top{background:transparent;margin:0 16px;min-height:72px;padding:16px;border:0;border-radius:16px;box-shadow:none}
 .brand{padding:0;gap:0}.suonelo-logo{width:153.35247461px;height:40px;max-width:none;flex:none}
 aside{margin:16px;width:219px;padding:16px 12px;align-self:stretch;border:1px solid var(--line);border-radius:24px;background:var(--side);min-height:0;overflow-y:auto}
-aside button[aria-current=true]{border-radius:12px}aside button{min-height:34px}
+aside button{min-height:34px}
 main{padding:32px;min-width:0}h1{font-size:24px;line-height:30px;font-weight:500}h2{font-size:18px;line-height:24px;font-weight:500}
 #app[data-theme="Suonelo"] :is(.theme[aria-pressed=true],.mode-picker button[aria-pressed=true],.switch-control input:checked+.switch-track){border-color:var(--highlight)}
 @media(max-width:760px){#app{grid-template:72px auto minmax(0,1fr) 34px/minmax(0,1fr)}.top{margin:0 8px;padding:16px 8px}aside{width:auto;margin:0 16px 8px;border-radius:16px;max-height:180px;padding:8px 12px}main{padding:16px}.sidebar-footer{margin-top:0}}
@@ -1574,7 +1624,7 @@ main{padding:32px;min-width:0}h1{font-size:24px;line-height:30px;font-weight:500
   padding: 0 26px 0 9px;
   font-size: 12px;
   border: 1px solid var(--input-line);
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--bg);
   color: var(--ink);
 }
@@ -1664,7 +1714,7 @@ main{padding:32px;min-width:0}h1{font-size:24px;line-height:30px;font-weight:500
 .search-results.cards .search-open-release { position: absolute; right: 10px; bottom: 9px; }
 .search-results.cards .search-check { position: absolute; top: 16px; right: 16px; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .search-track-number { width: 2.25rem; flex: none; text-align: center; color: var(--dim); font-variant-numeric: tabular-nums; }
-.search-detail { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.search-detail { display: grid; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .search-detail-actions button { min-height: 28px; padding: 3px 8px; font-size: 12px; }
 .search-detail-summary { display: flex; align-items: center; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
 .search-detail-summary .search-art { width: 48px; height: 48px; }
