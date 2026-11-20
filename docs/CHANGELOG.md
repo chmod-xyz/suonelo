@@ -7,6 +7,8 @@
 ### Changed
 
 - [win/mac] Repair missing FLAC audio checksums automatically and verify the tagged file before saving it.
+- [win/mac] Fixed spacing and styling issues
+- [win/mac] Added tooltips to release row buttons
 
 ### Removed
 
