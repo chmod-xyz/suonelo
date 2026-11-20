@@ -1641,6 +1641,7 @@ main{padding:32px;min-width:0}h1{font-size:24px;line-height:30px;font-weight:500
 .dropdown-popup { width: min(calc(var(--anchor-width) + var(--dropdown-extra,0px)), var(--available-width)); overflow: hidden; }
 .dropdown-position[data-wide=true] { --dropdown-extra: 24px; }
 .dropdown-list { padding: 4px; max-height: min(var(--available-height), 300px); overflow: hidden auto; }
+.dropdown-list>:not(:first-child) { margin-top:4px; }
 .dropdown-item { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 9px; border-radius: 6px; cursor: default; font-size: 13px; }
 .dropdown-item .icon { width: 14px; height: 14px; }
 .dropdown-item:is([data-highlighted],[data-selected]) { background: var(--hover); color: var(--ink); }
